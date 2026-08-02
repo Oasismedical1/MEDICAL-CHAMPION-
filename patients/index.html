@@ -1,33 +1,145 @@
--- Run this in Supabase: Project → SQL Editor → New query → paste → Run
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — Patient Registration &amp; EMR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-create table patients (
-  id uuid primary key default gen_random_uuid(),
-  upi text unique not null,
-  first_name text not null,
-  middle_name text,
-  surname text not null,
-  sex text,
-  dob date,
-  nin text,
-  phone text,
-  village text,
-  subcounty text,
-  district text,
-  ec_name text,
-  ec_phone text,
-  blood_group text,
-  allergies text,
-  chronic_conditions text,
-  created_at timestamptz default now()
-);
+<div class="shell">
 
--- Enable Row Level Security, then allow the anon (public) key to read/write.
--- This is fine for a single-facility internal tool behind your own link;
--- tighten this later once you add real user login (see SETUP.md).
-alter table patients enable row level security;
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="#" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="#" class="nav-item active"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="#" class="nav-item disabled"><span class="nav-ic">✚</span>Clinical</a></li>
+      <li><a href="#" class="nav-item disabled"><span class="nav-ic">▤</span>Reports</a></li>
+      <li><a href="#" class="nav-item disabled"><span class="nav-ic">⋯</span>More</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+  </nav>
 
-create policy "Allow anon read" on patients
-  for select using (true);
+  <!-- Main -->
+  <main class="main">
 
-create policy "Allow anon insert" on patients
-  for insert with check (true);
+    <header class="topbar">
+      <div>
+        <h1>Patient Registration &amp; EMR</h1>
+        <p class="sub">Every record starts here — the foundation the rest of the system reads from.</p>
+      </div>
+      <div class="topbar-stat">
+        <span class="stat-num" id="patient-count">0</span>
+        <span class="stat-label">patients registered</span>
+      </div>
+    </header>
+
+    <div class="workspace">
+
+      <!-- Registration form -->
+      <section class="panel form-panel">
+        <div class="panel-head">
+          <h2>Register patient</h2>
+          <span class="upi-preview" id="upi-preview">UGM-SRT-2026-000001</span>
+        </div>
+
+        <form id="patient-form">
+          <div class="field-group">
+            <label class="group-label">Personal details</label>
+            <div class="grid-3">
+              <div class="field"><label>First name *</label><input type="text" id="first_name" required></div>
+              <div class="field"><label>Middle name</label><input type="text" id="middle_name"></div>
+              <div class="field"><label>Surname *</label><input type="text" id="surname" required></div>
+            </div>
+            <div class="grid-3">
+              <div class="field"><label>Sex *</label>
+                <select id="sex" required>
+                  <option value="">Select</option>
+                  <option>Female</option>
+                  <option>Male</option>
+                </select>
+              </div>
+              <div class="field"><label>Date of birth</label><input type="date" id="dob"></div>
+              <div class="field"><label>National ID (NIN)</label><input type="text" id="nin"></div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="group-label">Contact &amp; location</label>
+            <div class="grid-3">
+              <div class="field"><label>Phone *</label><input type="tel" id="phone" required placeholder="07XXXXXXXX"></div>
+              <div class="field"><label>Village</label><input type="text" id="village"></div>
+              <div class="field"><label>Sub-county</label><input type="text" id="subcounty"></div>
+            </div>
+            <div class="grid-3">
+              <div class="field"><label>District</label><input type="text" id="district" value="Soroti"></div>
+              <div class="field"><label>Emergency contact name</label><input type="text" id="ec_name"></div>
+              <div class="field"><label>Emergency contact phone</label><input type="tel" id="ec_phone"></div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="group-label">Clinical baseline</label>
+            <div class="grid-3">
+              <div class="field"><label>Blood group</label>
+                <select id="blood_group">
+                  <option value="">Unknown</option>
+                  <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
+                  <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
+                </select>
+              </div>
+              <div class="field field-wide"><label>Known allergies</label><input type="text" id="allergies" placeholder="e.g. Penicillin — leave blank if none known"></div>
+            </div>
+            <div class="field field-wide">
+              <label>Chronic conditions</label>
+              <input type="text" id="chronic" placeholder="e.g. Hypertension, Diabetes — comma separated">
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-ghost" id="reset-btn">Clear</button>
+            <button type="submit" class="btn-primary">Register patient</button>
+          </div>
+          <p class="form-status" id="form-status"></p>
+        </form>
+      </section>
+
+      <!-- Patient list -->
+      <section class="panel list-panel">
+        <div class="panel-head">
+          <h2>Patients</h2>
+          <input type="search" id="search" placeholder="Search name, UPI, or phone…">
+        </div>
+        <div class="patient-list" id="patient-list">
+          <p class="empty-state">No patients yet. The first registration will appear here.</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- Record detail drawer -->
+<div class="drawer" id="drawer">
+  <div class="drawer-inner">
+    <button class="drawer-close" id="drawer-close">✕</button>
+    <div id="drawer-content"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
