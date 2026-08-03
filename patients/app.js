@@ -191,13 +191,129 @@ function renderDrawerView(p) {
       <button class="btn-ghost btn-small" id="record-consult-btn">+ New</button>
     </div>
     <div id="consult-list"><p class="empty-state small">Loading…</p></div>
+
+    <div class="vitals-head">
+      <h4>Current medications</h4>
+      <button class="btn-ghost btn-small" id="record-med-btn">+ Add</button>
+    </div>
+    <div id="med-list"><p class="empty-state small">Loading…</p></div>
   `;
 
   document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
   document.getElementById('record-vitals-btn').addEventListener('click', () => renderVitalsForm(p));
   document.getElementById('record-consult-btn').addEventListener('click', () => renderConsultForm(p));
+  document.getElementById('record-med-btn').addEventListener('click', () => renderMedForm(p));
   loadVitals(p);
   loadConsultations(p);
+  loadMedications(p);
+}
+
+// ---------- Current medications ----------
+async function loadMedications(p) {
+  const listEl = document.getElementById('med-list');
+  if (!listEl) return;
+
+  const { data, error } = await client
+    .from('medications')
+    .select('*')
+    .eq('patient_id', p.id)
+    .order('status', { ascending: true })
+    .order('start_date', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="empty-state small">Couldn't load medications.</p>`;
+    return;
+  }
+
+  if (!data.length) {
+    listEl.innerHTML = `<p class="empty-state small">No medications recorded yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = data.map(m => `
+    <div class="med-entry">
+      <div class="med-top">
+        <span class="med-name">${m.medicine_name}</span>
+        <span class="med-status med-status-${m.status}">${m.status}</span>
+      </div>
+      <div class="med-meta">${[m.dose, m.frequency, m.route].filter(Boolean).join(' · ') || '—'}</div>
+      <div class="med-meta">${m.start_date || 'start date unknown'}${m.end_date ? ` → ${m.end_date}` : ''}</div>
+      ${m.notes ? `<div class="med-meta">${m.notes}</div>` : ''}
+      ${m.status === 'active' ? `<button class="btn-ghost btn-small med-stop-btn" data-id="${m.id}">Mark stopped</button>` : ''}
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.med-stop-btn').forEach(btn => {
+    btn.addEventListener('click', () => markMedStopped(p, btn.dataset.id));
+  });
+}
+
+async function markMedStopped(p, id) {
+  await client.from('medications').update({ status: 'stopped' }).eq('id', id);
+  await loadMedications(p);
+}
+
+function renderMedForm(p) {
+  const container = document.getElementById('med-list');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="vitals-form">
+      <div class="edit-field"><label>Medicine name *</label><input id="m_name"></div>
+      <div class="grid-2">
+        <div class="edit-field"><label>Dose</label><input id="m_dose" placeholder="e.g. 500mg"></div>
+        <div class="edit-field"><label>Frequency</label><input id="m_freq" placeholder="e.g. BD"></div>
+        <div class="edit-field"><label>Route</label><input id="m_route" placeholder="e.g. Oral"></div>
+        <div class="edit-field"><label>Start date</label><input type="date" id="m_start"></div>
+      </div>
+      <div class="edit-field"><label>Notes</label><textarea id="m_notes" rows="2"></textarea></div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancel-med-btn">Cancel</button>
+        <button type="button" class="btn-primary" id="save-med-btn">Save medication</button>
+      </div>
+      <p class="form-status" id="med-status-msg"></p>
+    </div>
+  `;
+
+  document.getElementById('cancel-med-btn').addEventListener('click', () => loadMedications(p));
+  document.getElementById('save-med-btn').addEventListener('click', () => saveMedication(p));
+}
+
+async function saveMedication(p) {
+  const statusEl = document.getElementById('med-status-msg');
+  const name = document.getElementById('m_name').value.trim();
+
+  if (!name) {
+    statusEl.textContent = 'Medicine name is required.';
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'form-status';
+
+  const text = (id) => document.getElementById(id).value.trim();
+
+  const record = {
+    patient_id: p.id,
+    medicine_name: name,
+    dose: text('m_dose'),
+    frequency: text('m_freq'),
+    route: text('m_route'),
+    start_date: text('m_start') || null,
+    notes: text('m_notes'),
+    status: 'active',
+  };
+
+  const { error } = await client.from('medications').insert([record]);
+
+  if (error) {
+    statusEl.textContent = `Couldn't save: ${error.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  await loadMedications(p);
 }
 
 // ---------- Clinical consultations ----------
