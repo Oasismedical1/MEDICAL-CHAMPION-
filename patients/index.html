@@ -29,6 +29,10 @@
       <span class="dot" id="conn-dot"></span>
       <span id="conn-label">Checking connection…</span>
     </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
   </nav>
 
   <!-- Main -->
@@ -140,6 +144,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="auth-guard.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
