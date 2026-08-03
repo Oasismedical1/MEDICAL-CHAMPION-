@@ -213,3 +213,13 @@ h2{font-size:17px;color:var(--primary-dark);}
 .edit-field textarea:focus{outline:2px solid var(--primary); outline-offset:1px; border-color:var(--primary);}
 .consult-label{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-top:8px;}
 .consult-text{margin:2px 0 0; font-size:13px; white-space:pre-wrap;}
+
+.med-entry{border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-top:10px;}
+.med-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.med-name{font-weight:600; font-size:13.5px;}
+.med-status{font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; padding:2px 7px; border-radius:4px;}
+.med-status-active{background:#E4F3EC; color:#1F7A4D;}
+.med-status-stopped{background:#F0F0F0; color:var(--ink-soft);}
+.med-status-completed{background:#EAF0FB; color:#2E5AA8;}
+.med-meta{font-size:11.5px; color:var(--ink-soft); margin-top:4px;}
+.med-stop-btn{margin-top:8px;}
