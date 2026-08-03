@@ -185,11 +185,104 @@ function renderDrawerView(p) {
       <button class="btn-ghost btn-small" id="record-vitals-btn">+ Record</button>
     </div>
     <div id="vitals-list"><p class="empty-state small">Loading…</p></div>
+
+    <div class="vitals-head">
+      <h4>Clinical consultations</h4>
+      <button class="btn-ghost btn-small" id="record-consult-btn">+ New</button>
+    </div>
+    <div id="consult-list"><p class="empty-state small">Loading…</p></div>
   `;
 
   document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
   document.getElementById('record-vitals-btn').addEventListener('click', () => renderVitalsForm(p));
+  document.getElementById('record-consult-btn').addEventListener('click', () => renderConsultForm(p));
   loadVitals(p);
+  loadConsultations(p);
+}
+
+// ---------- Clinical consultations ----------
+async function loadConsultations(p) {
+  const listEl = document.getElementById('consult-list');
+  if (!listEl) return;
+
+  const { data, error } = await client
+    .from('consultations')
+    .select('*')
+    .eq('patient_id', p.id)
+    .order('recorded_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="empty-state small">Couldn't load consultations.</p>`;
+    return;
+  }
+
+  if (!data.length) {
+    listEl.innerHTML = `<p class="empty-state small">No consultations recorded yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = data.map(c => `
+    <div class="vitals-entry">
+      <div class="vitals-date">${new Date(c.recorded_at).toLocaleString()}${c.follow_up_date ? ` · Follow-up: ${c.follow_up_date}` : ''}</div>
+      ${c.chief_complaint ? `<dt class="consult-label">Chief complaint</dt><dd class="consult-text">${c.chief_complaint}</dd>` : ''}
+      ${c.diagnosis ? `<dt class="consult-label">Diagnosis</dt><dd class="consult-text">${c.diagnosis}</dd>` : ''}
+      ${c.treatment_plan ? `<dt class="consult-label">Treatment plan</dt><dd class="consult-text">${c.treatment_plan}</dd>` : ''}
+      ${c.prescription ? `<dt class="consult-label">Prescription</dt><dd class="consult-text">${c.prescription}</dd>` : ''}
+      ${c.history_notes ? `<dt class="consult-label">Notes</dt><dd class="consult-text">${c.history_notes}</dd>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderConsultForm(p) {
+  const container = document.getElementById('consult-list');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="vitals-form">
+      <div class="edit-field"><label>Chief complaint</label><textarea id="c_complaint" rows="2"></textarea></div>
+      <div class="edit-field"><label>History / notes</label><textarea id="c_history" rows="2"></textarea></div>
+      <div class="edit-field"><label>Diagnosis</label><textarea id="c_diagnosis" rows="2"></textarea></div>
+      <div class="edit-field"><label>Treatment plan</label><textarea id="c_treatment" rows="2"></textarea></div>
+      <div class="edit-field"><label>Prescription</label><textarea id="c_prescription" rows="2" placeholder="e.g. Amoxicillin 500mg TDS x5 days"></textarea></div>
+      <div class="edit-field"><label>Follow-up date</label><input type="date" id="c_followup"></div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancel-consult-btn">Cancel</button>
+        <button type="button" class="btn-primary" id="save-consult-btn">Save consultation</button>
+      </div>
+      <p class="form-status" id="consult-status"></p>
+    </div>
+  `;
+
+  document.getElementById('cancel-consult-btn').addEventListener('click', () => loadConsultations(p));
+  document.getElementById('save-consult-btn').addEventListener('click', () => saveConsultation(p));
+}
+
+async function saveConsultation(p) {
+  const statusEl = document.getElementById('consult-status');
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'form-status';
+
+  const text = (id) => document.getElementById(id).value.trim();
+
+  const record = {
+    patient_id: p.id,
+    chief_complaint: text('c_complaint'),
+    history_notes: text('c_history'),
+    diagnosis: text('c_diagnosis'),
+    treatment_plan: text('c_treatment'),
+    prescription: text('c_prescription'),
+    follow_up_date: text('c_followup') || null,
+  };
+
+  const { error } = await client.from('consultations').insert([record]);
+
+  if (error) {
+    statusEl.textContent = `Couldn't save: ${error.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  await loadConsultations(p);
 }
 
 // ---------- Vitals ----------
