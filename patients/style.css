@@ -205,3 +205,11 @@ h2{font-size:17px;color:var(--primary-dark);}
 .vitals-chip.vital-flag{background:#FBEAE8; color:var(--danger); font-weight:600;}
 .vitals-form{margin-top:10px;}
 .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.edit-field textarea{
+  border:1px solid var(--line); border-radius:6px; padding:7px 9px;
+  font-size:13.5px; font-family:inherit; color:var(--ink); background:#FDFEFE;
+  resize:vertical;
+}
+.edit-field textarea:focus{outline:2px solid var(--primary); outline-offset:1px; border-color:var(--primary);}
+.consult-label{font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); margin-top:8px;}
+.consult-text{margin:2px 0 0; font-size:13px; white-space:pre-wrap;}
