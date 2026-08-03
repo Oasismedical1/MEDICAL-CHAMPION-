@@ -71,6 +71,18 @@ h2{font-size:17px;color:var(--primary-dark);}
 .dot.online{background:#4EBE8E;}
 .dot.offline{background:#B3261E;}
 
+.sidebar-user{
+  margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1);
+  display:flex; flex-direction:column; gap:6px;
+}
+.sidebar-user #user-email{font-size:11px; color:#9CC0BC; word-break:break-all;}
+.sidebar-user #signout-btn{
+  background:transparent; border:1px solid rgba(255,255,255,0.2); color:#DDEEEC;
+  border-radius:6px; padding:6px 10px; font-size:11.5px; font-family:inherit;
+  cursor:pointer; text-align:left;
+}
+.sidebar-user #signout-btn:hover{background:rgba(255,255,255,0.08);}
+
 /* Main */
 .main{flex:1; padding:32px 40px; max-width:1200px;}
 .topbar{display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px;}
