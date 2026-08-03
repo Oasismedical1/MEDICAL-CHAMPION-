@@ -1,5 +1,5 @@
 // ---------- Setup ----------
-const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// `client` is created by auth-guard.js, which loads before this file.
 
 const els = {
   form: document.getElementById('patient-form'),
@@ -176,8 +176,21 @@ function openDrawer(id) {
 
 els.drawerClose.addEventListener('click', () => els.drawer.classList.remove('open'));
 
+// ---------- Sign out ----------
+const signOutBtn = document.getElementById('signout-btn');
+if (signOutBtn) {
+  signOutBtn.addEventListener('click', async () => {
+    await client.auth.signOut();
+    window.location.href = 'login.html';
+  });
+}
+
 // ---------- Init ----------
 (async function init() {
+  const user = await window.authReady; // waits for auth-guard.js to confirm login
+  const userLabel = document.getElementById('user-email');
+  if (userLabel && user) userLabel.textContent = user.email;
+
   const connected = await checkConnection();
   if (connected) await loadPatients();
   else els.upiPreview.textContent = nextUpi(0, 'Soroti');
