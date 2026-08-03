@@ -162,9 +162,14 @@ function renderDrawerView(p) {
 
   els.drawerContent.innerHTML = `
     <div class="drawer-head">
-      <div>
-        <h3>${p.first_name} ${p.middle_name || ''} ${p.surname}</h3>
-        <div class="drawer-upi">${p.upi}</div>
+      <div class="drawer-photo-row">
+        <div class="patient-avatar" id="patient-avatar">${initials(p)}</div>
+        <div>
+          <h3>${p.first_name} ${p.middle_name || ''} ${p.surname}</h3>
+          <div class="drawer-upi">${p.upi}</div>
+          <button class="btn-ghost btn-small" id="photo-btn">Change photo</button>
+          <input type="file" id="photo-input" accept="image/*" style="display:none">
+        </div>
       </div>
       <button class="btn-ghost btn-small" id="edit-btn">Edit</button>
     </div>
@@ -197,15 +202,167 @@ function renderDrawerView(p) {
       <button class="btn-ghost btn-small" id="record-med-btn">+ Add</button>
     </div>
     <div id="med-list"><p class="empty-state small">Loading…</p></div>
+
+    <div class="vitals-head">
+      <h4>Documents</h4>
+      <button class="btn-ghost btn-small" id="upload-doc-btn">+ Upload</button>
+    </div>
+    <div id="doc-list"><p class="empty-state small">Loading…</p></div>
   `;
 
   document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
   document.getElementById('record-vitals-btn').addEventListener('click', () => renderVitalsForm(p));
   document.getElementById('record-consult-btn').addEventListener('click', () => renderConsultForm(p));
   document.getElementById('record-med-btn').addEventListener('click', () => renderMedForm(p));
+  document.getElementById('upload-doc-btn').addEventListener('click', () => renderDocForm(p));
+  document.getElementById('photo-btn').addEventListener('click', () => document.getElementById('photo-input').click());
+  document.getElementById('photo-input').addEventListener('change', (e) => uploadPhoto(p, e.target.files[0]));
   loadVitals(p);
   loadConsultations(p);
   loadMedications(p);
+  loadDocuments(p);
+  loadAvatar(p);
+}
+
+function initials(p) {
+  return `${(p.first_name || '?')[0]}${(p.surname || '?')[0]}`.toUpperCase();
+}
+
+// ---------- Photo ----------
+async function loadAvatar(p) {
+  const el = document.getElementById('patient-avatar');
+  if (!el || !p.photo_path) return;
+  const { data, error } = await client.storage.from('patient-files').createSignedUrl(p.photo_path, 3600);
+  if (!error && data) {
+    el.innerHTML = `<img src="${data.signedUrl}" alt="Patient photo">`;
+  }
+}
+
+async function uploadPhoto(p, file) {
+  if (!file) return;
+  const path = `patients/${p.id}/photo-${Date.now()}.${file.name.split('.').pop()}`;
+
+  const { error: uploadErr } = await client.storage.from('patient-files').upload(path, file);
+  if (uploadErr) {
+    alert(`Couldn't upload photo: ${uploadErr.message}`);
+    return;
+  }
+
+  const { error: updateErr } = await client.from('patients').update({ photo_path: path }).eq('id', p.id);
+  if (updateErr) {
+    alert(`Photo uploaded but couldn't link it: ${updateErr.message}`);
+    return;
+  }
+
+  await loadPatients();
+  const refreshed = allPatients.find(x => String(x.id) === String(p.id));
+  if (refreshed) loadAvatar(refreshed);
+}
+
+// ---------- Documents ----------
+async function loadDocuments(p) {
+  const listEl = document.getElementById('doc-list');
+  if (!listEl) return;
+
+  const { data, error } = await client
+    .from('documents')
+    .select('*')
+    .eq('patient_id', p.id)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="empty-state small">Couldn't load documents.</p>`;
+    return;
+  }
+
+  if (!data.length) {
+    listEl.innerHTML = `<p class="empty-state small">No documents uploaded yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = data.map(d => `
+    <div class="doc-entry">
+      <div>
+        <div class="doc-name">${d.file_name}</div>
+        <div class="med-meta">${d.doc_type || 'Document'} · ${new Date(d.uploaded_at).toLocaleDateString()}</div>
+      </div>
+      <button class="btn-ghost btn-small doc-view-btn" data-path="${d.storage_path}">View</button>
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.doc-view-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const { data, error } = await client.storage.from('patient-files').createSignedUrl(btn.dataset.path, 300);
+      if (!error && data) window.open(data.signedUrl, '_blank');
+    });
+  });
+}
+
+function renderDocForm(p) {
+  const container = document.getElementById('doc-list');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="vitals-form">
+      <div class="edit-field"><label>Document type</label>
+        <select id="d_type">
+          <option>Referral letter</option>
+          <option>Discharge summary</option>
+          <option>Medical certificate</option>
+          <option>Laboratory report</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="edit-field"><label>File</label><input type="file" id="d_file"></div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancel-doc-btn">Cancel</button>
+        <button type="button" class="btn-primary" id="save-doc-btn">Upload</button>
+      </div>
+      <p class="form-status" id="doc-status-msg"></p>
+    </div>
+  `;
+
+  document.getElementById('cancel-doc-btn').addEventListener('click', () => loadDocuments(p));
+  document.getElementById('save-doc-btn').addEventListener('click', () => saveDocument(p));
+}
+
+async function saveDocument(p) {
+  const statusEl = document.getElementById('doc-status-msg');
+  const file = document.getElementById('d_file').files[0];
+  const docType = document.getElementById('d_type').value;
+
+  if (!file) {
+    statusEl.textContent = 'Choose a file first.';
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  statusEl.textContent = 'Uploading…';
+  statusEl.className = 'form-status';
+
+  const path = `patients/${p.id}/docs/${Date.now()}-${file.name}`;
+  const { error: uploadErr } = await client.storage.from('patient-files').upload(path, file);
+
+  if (uploadErr) {
+    statusEl.textContent = `Couldn't upload: ${uploadErr.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  const { error: insertErr } = await client.from('documents').insert([{
+    patient_id: p.id,
+    file_name: file.name,
+    storage_path: path,
+    doc_type: docType,
+  }]);
+
+  if (insertErr) {
+    statusEl.textContent = `File uploaded but couldn't save record: ${insertErr.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  await loadDocuments(p);
 }
 
 // ---------- Current medications ----------
