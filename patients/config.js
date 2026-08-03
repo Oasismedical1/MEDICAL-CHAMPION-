@@ -1,6 +1,2 @@
-// Fill these in from your Supabase project: Project Settings → API
-// SUPABASE_URL looks like: https://xxxxxxxxxxxx.supabase.co
-// SUPABASE_ANON_KEY is the long "anon public" key (safe to use in front-end code)
-
-const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+const SUPABASE_URL = "https://kckxavutjoenznsvqnqt.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtja3hhdnV0am9lbnpuc3ZxbnF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3MDEzNjksImV4cCI6MjEwMTI3NzM2OX0.BOMHhPC0piS3Vixymb2BRezKpzCsA37lUdjXvfAvjnY";
