@@ -179,9 +179,128 @@ function renderDrawerView(p) {
       <dt>Chronic conditions</dt><dd>${p.chronic_conditions || 'None recorded'}</dd>
       <dt>Registered</dt><dd>${new Date(p.created_at).toLocaleDateString()}</dd>
     </dl>
+
+    <div class="vitals-head">
+      <h4>Vitals</h4>
+      <button class="btn-ghost btn-small" id="record-vitals-btn">+ Record</button>
+    </div>
+    <div id="vitals-list"><p class="empty-state small">Loading…</p></div>
   `;
 
   document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
+  document.getElementById('record-vitals-btn').addEventListener('click', () => renderVitalsForm(p));
+  loadVitals(p);
+}
+
+// ---------- Vitals ----------
+function flagVital(label, value, low, high) {
+  if (value === null || value === undefined || value === '') return '';
+  const v = Number(value);
+  if (isNaN(v)) return '';
+  return (v < low || v > high) ? ' vital-flag' : '';
+}
+
+async function loadVitals(p) {
+  const listEl = document.getElementById('vitals-list');
+  if (!listEl) return;
+
+  const { data, error } = await client
+    .from('vitals')
+    .select('*')
+    .eq('patient_id', p.id)
+    .order('recorded_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="empty-state small">Couldn't load vitals.</p>`;
+    return;
+  }
+
+  if (!data.length) {
+    listEl.innerHTML = `<p class="empty-state small">No vitals recorded yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = data.map(v => `
+    <div class="vitals-entry">
+      <div class="vitals-date">${new Date(v.recorded_at).toLocaleString()}</div>
+      <div class="vitals-grid">
+        ${v.temperature != null ? `<span class="vitals-chip${flagVital('temp', v.temperature, 35.5, 37.5)}">Temp ${v.temperature}°C</span>` : ''}
+        ${v.bp_systolic != null ? `<span class="vitals-chip${flagVital('bp', v.bp_systolic, 90, 140)}">BP ${v.bp_systolic}/${v.bp_diastolic ?? '—'}</span>` : ''}
+        ${v.pulse != null ? `<span class="vitals-chip${flagVital('pulse', v.pulse, 60, 100)}">Pulse ${v.pulse}</span>` : ''}
+        ${v.respiratory_rate != null ? `<span class="vitals-chip${flagVital('rr', v.respiratory_rate, 12, 20)}">RR ${v.respiratory_rate}</span>` : ''}
+        ${v.spo2 != null ? `<span class="vitals-chip${flagVital('spo2', v.spo2, 94, 100)}">SpO₂ ${v.spo2}%</span>` : ''}
+        ${v.weight_kg != null ? `<span class="vitals-chip">Wt ${v.weight_kg}kg</span>` : ''}
+        ${v.height_cm != null ? `<span class="vitals-chip">Ht ${v.height_cm}cm</span>` : ''}
+        ${v.blood_glucose != null ? `<span class="vitals-chip">Glucose ${v.blood_glucose}</span>` : ''}
+        ${v.pain_score != null ? `<span class="vitals-chip">Pain ${v.pain_score}/10</span>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderVitalsForm(p) {
+  const container = document.getElementById('vitals-list');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="vitals-form">
+      <div class="grid-2">
+        <div class="edit-field"><label>Temperature (°C)</label><input type="number" step="0.1" id="v_temp"></div>
+        <div class="edit-field"><label>Pulse (bpm)</label><input type="number" id="v_pulse"></div>
+        <div class="edit-field"><label>BP systolic</label><input type="number" id="v_sys"></div>
+        <div class="edit-field"><label>BP diastolic</label><input type="number" id="v_dia"></div>
+        <div class="edit-field"><label>Respiratory rate</label><input type="number" id="v_rr"></div>
+        <div class="edit-field"><label>SpO₂ (%)</label><input type="number" id="v_spo2"></div>
+        <div class="edit-field"><label>Weight (kg)</label><input type="number" step="0.1" id="v_weight"></div>
+        <div class="edit-field"><label>Height (cm)</label><input type="number" step="0.1" id="v_height"></div>
+        <div class="edit-field"><label>Blood glucose</label><input type="number" step="0.1" id="v_glucose"></div>
+        <div class="edit-field"><label>Pain score (0-10)</label><input type="number" min="0" max="10" id="v_pain"></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancel-vitals-btn">Cancel</button>
+        <button type="button" class="btn-primary" id="save-vitals-btn">Save vitals</button>
+      </div>
+      <p class="form-status" id="vitals-status"></p>
+    </div>
+  `;
+
+  document.getElementById('cancel-vitals-btn').addEventListener('click', () => loadVitals(p));
+  document.getElementById('save-vitals-btn').addEventListener('click', () => saveVitals(p));
+}
+
+async function saveVitals(p) {
+  const statusEl = document.getElementById('vitals-status');
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'form-status';
+
+  const num = (id) => {
+    const v = document.getElementById(id).value;
+    return v === '' ? null : Number(v);
+  };
+
+  const record = {
+    patient_id: p.id,
+    temperature: num('v_temp'),
+    pulse: num('v_pulse'),
+    bp_systolic: num('v_sys'),
+    bp_diastolic: num('v_dia'),
+    respiratory_rate: num('v_rr'),
+    spo2: num('v_spo2'),
+    weight_kg: num('v_weight'),
+    height_cm: num('v_height'),
+    blood_glucose: num('v_glucose'),
+    pain_score: num('v_pain'),
+  };
+
+  const { error } = await client.from('vitals').insert([record]);
+
+  if (error) {
+    statusEl.textContent = `Couldn't save: ${error.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  await loadVitals(p);
 }
 
 function renderDrawerEdit(p) {
