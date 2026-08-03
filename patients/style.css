@@ -191,3 +191,17 @@ h2{font-size:17px;color:var(--primary-dark);}
 .edit-field input:focus, .edit-field select:focus{
   outline:2px solid var(--primary); outline-offset:1px; border-color:var(--primary);
 }
+
+.vitals-head{display:flex; justify-content:space-between; align-items:center; margin-top:22px; padding-top:14px; border-top:1px solid var(--line);}
+.vitals-head h4{font-family:'Fraunces', serif; font-size:14.5px; margin:0; color:var(--primary-dark);}
+.empty-state.small{font-size:12px; padding:10px 0;}
+.vitals-entry{border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-top:10px;}
+.vitals-date{font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; margin-bottom:6px;}
+.vitals-grid{display:flex; flex-wrap:wrap; gap:6px;}
+.vitals-chip{
+  font-size:11.5px; font-weight:500; background:#F0F5F3; color:var(--ink);
+  border-radius:5px; padding:3px 8px;
+}
+.vitals-chip.vital-flag{background:#FBEAE8; color:var(--danger); font-weight:600;}
+.vitals-form{margin-top:10px;}
+.grid-2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
