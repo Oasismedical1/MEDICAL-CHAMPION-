@@ -151,14 +151,23 @@ function val(id) {
 function openDrawer(id) {
   const p = allPatients.find(x => String(x.id) === String(id));
   if (!p) return;
+  renderDrawerView(p);
+  els.drawer.classList.add('open');
+}
 
+function renderDrawerView(p) {
   const allergyTag = p.allergies
     ? `<span class="tag-danger">⚠ Allergy: ${p.allergies}</span>`
     : '';
 
   els.drawerContent.innerHTML = `
-    <h3>${p.first_name} ${p.middle_name || ''} ${p.surname}</h3>
-    <div class="drawer-upi">${p.upi}</div>
+    <div class="drawer-head">
+      <div>
+        <h3>${p.first_name} ${p.middle_name || ''} ${p.surname}</h3>
+        <div class="drawer-upi">${p.upi}</div>
+      </div>
+      <button class="btn-ghost btn-small" id="edit-btn">Edit</button>
+    </div>
     ${allergyTag}
     <dl>
       <dt>Sex / DOB</dt><dd>${p.sex || '—'} · ${p.dob || 'not recorded'}</dd>
@@ -171,7 +180,96 @@ function openDrawer(id) {
       <dt>Registered</dt><dd>${new Date(p.created_at).toLocaleDateString()}</dd>
     </dl>
   `;
-  els.drawer.classList.add('open');
+
+  document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
+}
+
+function renderDrawerEdit(p) {
+  els.drawerContent.innerHTML = `
+    <h3>Edit patient</h3>
+    <div class="drawer-upi">${p.upi}</div>
+
+    <div class="edit-field"><label>First name</label><input id="e_first_name" value="${escAttr(p.first_name)}"></div>
+    <div class="edit-field"><label>Middle name</label><input id="e_middle_name" value="${escAttr(p.middle_name)}"></div>
+    <div class="edit-field"><label>Surname</label><input id="e_surname" value="${escAttr(p.surname)}"></div>
+    <div class="edit-field"><label>Sex</label>
+      <select id="e_sex">
+        <option value="" ${!p.sex ? 'selected' : ''}>Select</option>
+        <option ${p.sex === 'Female' ? 'selected' : ''}>Female</option>
+        <option ${p.sex === 'Male' ? 'selected' : ''}>Male</option>
+      </select>
+    </div>
+    <div class="edit-field"><label>Date of birth</label><input type="date" id="e_dob" value="${p.dob || ''}"></div>
+    <div class="edit-field"><label>National ID</label><input id="e_nin" value="${escAttr(p.nin)}"></div>
+    <div class="edit-field"><label>Phone</label><input id="e_phone" value="${escAttr(p.phone)}"></div>
+    <div class="edit-field"><label>Village</label><input id="e_village" value="${escAttr(p.village)}"></div>
+    <div class="edit-field"><label>Sub-county</label><input id="e_subcounty" value="${escAttr(p.subcounty)}"></div>
+    <div class="edit-field"><label>District</label><input id="e_district" value="${escAttr(p.district)}"></div>
+    <div class="edit-field"><label>Emergency contact name</label><input id="e_ec_name" value="${escAttr(p.ec_name)}"></div>
+    <div class="edit-field"><label>Emergency contact phone</label><input id="e_ec_phone" value="${escAttr(p.ec_phone)}"></div>
+    <div class="edit-field"><label>Blood group</label>
+      <select id="e_blood_group">
+        <option value="" ${!p.blood_group ? 'selected' : ''}>Unknown</option>
+        ${['O+','O-','A+','A-','B+','B-','AB+','AB-'].map(bg =>
+          `<option ${p.blood_group === bg ? 'selected' : ''}>${bg}</option>`).join('')}
+      </select>
+    </div>
+    <div class="edit-field"><label>Known allergies</label><input id="e_allergies" value="${escAttr(p.allergies)}"></div>
+    <div class="edit-field"><label>Chronic conditions</label><input id="e_chronic" value="${escAttr(p.chronic_conditions)}"></div>
+
+    <div class="form-actions">
+      <button type="button" class="btn-ghost" id="cancel-edit-btn">Cancel</button>
+      <button type="button" class="btn-primary" id="save-edit-btn">Save changes</button>
+    </div>
+    <p class="form-status" id="edit-status"></p>
+  `;
+
+  document.getElementById('cancel-edit-btn').addEventListener('click', () => renderDrawerView(p));
+  document.getElementById('save-edit-btn').addEventListener('click', () => saveEdit(p.id));
+}
+
+async function saveEdit(id) {
+  const statusEl = document.getElementById('edit-status');
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'form-status';
+
+  const updated = {
+    first_name: ev('e_first_name'),
+    middle_name: ev('e_middle_name'),
+    surname: ev('e_surname'),
+    sex: ev('e_sex'),
+    dob: ev('e_dob') || null,
+    nin: ev('e_nin'),
+    phone: ev('e_phone'),
+    village: ev('e_village'),
+    subcounty: ev('e_subcounty'),
+    district: ev('e_district'),
+    ec_name: ev('e_ec_name'),
+    ec_phone: ev('e_ec_phone'),
+    blood_group: ev('e_blood_group'),
+    allergies: ev('e_allergies'),
+    chronic_conditions: ev('e_chronic'),
+  };
+
+  const { error } = await client.from('patients').update(updated).eq('id', id);
+
+  if (error) {
+    statusEl.textContent = `Couldn't save: ${error.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  await loadPatients();
+  const refreshed = allPatients.find(x => String(x.id) === String(id));
+  if (refreshed) renderDrawerView(refreshed);
+}
+
+function ev(id) {
+  return document.getElementById(id).value.trim();
+}
+
+function escAttr(v) {
+  return (v || '').toString().replace(/"/g, '&quot;');
 }
 
 els.drawerClose.addEventListener('click', () => els.drawer.classList.remove('open'));
