@@ -111,6 +111,7 @@ els.form.addEventListener('submit', async (e) => {
     sex: val('sex'),
     dob: val('dob') || null,
     nin: val('nin'),
+    category: val('category'),
     phone: val('phone'),
     village: val('village'),
     subcounty: val('subcounty'),
@@ -134,12 +135,14 @@ els.form.addEventListener('submit', async (e) => {
   els.status.className = 'form-status ok';
   els.form.reset();
   document.getElementById('district').value = 'Soroti';
+  document.getElementById('category').value = 'New Patient';
   loadPatients();
 });
 
 els.resetBtn.addEventListener('click', () => {
   els.form.reset();
   document.getElementById('district').value = 'Soroti';
+  document.getElementById('category').value = 'New Patient';
   els.status.textContent = '';
 });
 
@@ -175,6 +178,7 @@ function renderDrawerView(p) {
     </div>
     ${allergyTag}
     <dl>
+      <dt>Category</dt><dd>${p.category || 'New Patient'}</dd>
       <dt>Sex / DOB</dt><dd>${p.sex || '—'} · ${p.dob || 'not recorded'}</dd>
       <dt>Phone</dt><dd>${p.phone || '—'}</dd>
       <dt>Location</dt><dd>${[p.village, p.subcounty, p.district].filter(Boolean).join(', ') || '—'}</dd>
@@ -214,6 +218,12 @@ function renderDrawerView(p) {
       <button class="btn-ghost btn-small" id="record-immun-btn">+ Add</button>
     </div>
     <div id="immun-list"><p class="empty-state small">Loading…</p></div>
+
+    <div class="vitals-head">
+      <h4>Family members</h4>
+      <button class="btn-ghost btn-small" id="link-family-btn">+ Link</button>
+    </div>
+    <div id="family-list"><p class="empty-state small">Loading…</p></div>
   `;
 
   document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
@@ -222,6 +232,7 @@ function renderDrawerView(p) {
   document.getElementById('record-med-btn').addEventListener('click', () => renderMedForm(p));
   document.getElementById('upload-doc-btn').addEventListener('click', () => renderDocForm(p));
   document.getElementById('record-immun-btn').addEventListener('click', () => renderImmunForm(p));
+  document.getElementById('link-family-btn').addEventListener('click', () => renderFamilyForm(p));
   document.getElementById('photo-btn').addEventListener('click', () => document.getElementById('photo-input').click());
   document.getElementById('photo-input').addEventListener('change', (e) => uploadPhoto(p, e.target.files[0]));
   loadVitals(p);
@@ -229,7 +240,113 @@ function renderDrawerView(p) {
   loadMedications(p);
   loadDocuments(p);
   loadImmunizations(p);
+  loadFamilyLinks(p);
   loadAvatar(p);
+}
+
+// ---------- Family links ----------
+async function loadFamilyLinks(p) {
+  const listEl = document.getElementById('family-list');
+  if (!listEl) return;
+
+  const { data, error } = await client
+    .from('family_links')
+    .select('*')
+    .or(`patient_id.eq.${p.id},related_patient_id.eq.${p.id}`);
+
+  if (error) {
+    listEl.innerHTML = `<p class="empty-state small">Couldn't load family links.</p>`;
+    return;
+  }
+
+  if (!data.length) {
+    listEl.innerHTML = `<p class="empty-state small">No family members linked yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = data.map(link => {
+    const otherId = link.patient_id === p.id ? link.related_patient_id : link.patient_id;
+    const other = allPatients.find(x => x.id === otherId);
+    const name = other ? `${other.first_name} ${other.surname}` : 'Unknown patient';
+    return `
+      <div class="patient-row" data-id="${otherId}">
+        <div>
+          <div class="pr-name">${name}</div>
+          <div class="pr-meta">${link.relationship || 'Family member'}</div>
+        </div>
+        <span>→</span>
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('.patient-row').forEach(row => {
+    row.addEventListener('click', () => openDrawer(row.dataset.id));
+  });
+}
+
+function renderFamilyForm(p) {
+  const container = document.getElementById('family-list');
+  if (!container) return;
+
+  const options = allPatients
+    .filter(x => x.id !== p.id)
+    .map(x => `<option value="${x.id}">${x.first_name} ${x.surname} (${x.upi})</option>`)
+    .join('');
+
+  container.innerHTML = `
+    <div class="vitals-form">
+      <div class="edit-field"><label>Related patient</label>
+        <select id="f_patient">${options}</select>
+      </div>
+      <div class="edit-field"><label>Relationship</label>
+        <select id="f_relationship">
+          <option>Spouse</option>
+          <option>Child</option>
+          <option>Parent</option>
+          <option>Sibling</option>
+          <option>Guardian</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancel-family-btn">Cancel</button>
+        <button type="button" class="btn-primary" id="save-family-btn">Save link</button>
+      </div>
+      <p class="form-status" id="family-status-msg"></p>
+    </div>
+  `;
+
+  document.getElementById('cancel-family-btn').addEventListener('click', () => loadFamilyLinks(p));
+  document.getElementById('save-family-btn').addEventListener('click', () => saveFamilyLink(p));
+}
+
+async function saveFamilyLink(p) {
+  const statusEl = document.getElementById('family-status-msg');
+  const relatedId = document.getElementById('f_patient').value;
+  const relationship = document.getElementById('f_relationship').value;
+
+  if (!relatedId) {
+    statusEl.textContent = 'No other patients to link yet.';
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'form-status';
+
+  const { error } = await client.from('family_links').insert([{
+    patient_id: p.id,
+    related_patient_id: relatedId,
+    relationship,
+  }]);
+
+  if (error) {
+    statusEl.textContent = `Couldn't save: ${error.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  await loadFamilyLinks(p);
 }
 
 // ---------- Immunization history ----------
@@ -786,6 +903,12 @@ function renderDrawerEdit(p) {
     <div class="edit-field"><label>First name</label><input id="e_first_name" value="${escAttr(p.first_name)}"></div>
     <div class="edit-field"><label>Middle name</label><input id="e_middle_name" value="${escAttr(p.middle_name)}"></div>
     <div class="edit-field"><label>Surname</label><input id="e_surname" value="${escAttr(p.surname)}"></div>
+    <div class="edit-field"><label>Category</label>
+      <select id="e_category">
+        ${['New Patient','Returning Patient','Emergency','Private','Insurance','Corporate','Government Scheme','Research Participant','VIP','Staff'].map(c =>
+          `<option ${p.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+      </select>
+    </div>
     <div class="edit-field"><label>Sex</label>
       <select id="e_sex">
         <option value="" ${!p.sex ? 'selected' : ''}>Select</option>
@@ -831,6 +954,7 @@ async function saveEdit(id) {
     first_name: ev('e_first_name'),
     middle_name: ev('e_middle_name'),
     surname: ev('e_surname'),
+    category: ev('e_category'),
     sex: ev('e_sex'),
     dob: ev('e_dob') || null,
     nin: ev('e_nin'),
