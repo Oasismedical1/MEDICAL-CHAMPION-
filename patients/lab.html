@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — Laboratory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="pharmacy.html" class="nav-item"><span class="nav-ic">℞</span>Pharmacy</a></li>
+      <li><a href="lab.html" class="nav-item active"><span class="nav-ic">⚗</span>Laboratory</a></li>
+      <li><a href="#" class="nav-item disabled"><span class="nav-ic">▤</span>Reports</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Laboratory</h1>
+        <p class="sub">Request tests, track the worklist, and record results.</p>
+      </div>
+    </header>
+
+    <div class="workspace">
+
+      <section class="panel form-panel">
+        <div class="panel-head">
+          <h2>Request a test</h2>
+        </div>
+        <div class="edit-field"><label>Patient</label>
+          <input type="text" id="lab-patient-search" placeholder="Search patient by name, UPI, or phone…">
+          <div id="lab-patient-results" class="search-results"></div>
+          <input type="hidden" id="lab-patient-id">
+        </div>
+        <p class="form-status" id="lab-selected-patient"></p>
+
+        <div class="grid-2">
+          <div class="edit-field"><label>Test name</label><input id="lab-test-name" placeholder="e.g. Malaria RDT, Full Blood Count"></div>
+          <div class="edit-field"><label>Sample type</label><input id="lab-sample-type" placeholder="e.g. Blood, Urine"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="lab-request-btn">Request test</button>
+        </div>
+        <p class="form-status" id="lab-request-status"></p>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head">
+          <h2>Pending worklist</h2>
+        </div>
+        <div class="patient-list" id="lab-pending-list"><p class="empty-state">Loading…</p></div>
+
+        <div class="panel-head" style="margin-top:26px;">
+          <h2>Recently completed</h2>
+        </div>
+        <div id="lab-completed-list"><p class="empty-state">Loading…</p></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="lab.js"></script>
+</body>
+</html>
