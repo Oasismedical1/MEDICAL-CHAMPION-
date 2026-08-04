@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — Reports</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="pharmacy.html" class="nav-item"><span class="nav-ic">℞</span>Pharmacy</a></li>
+      <li><a href="lab.html" class="nav-item"><span class="nav-ic">⚗</span>Laboratory</a></li>
+      <li><a href="reports.html" class="nav-item active"><span class="nav-ic">▤</span>Reports</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Reports</h1>
+        <p class="sub">A snapshot of the facility, pulled live from every module.</p>
+      </div>
+    </header>
+
+    <div class="stat-cards" id="stat-cards">
+      <div class="stat-card"><span class="stat-card-num" id="stat-total-patients">—</span><span class="stat-card-label">Total patients</span></div>
+      <div class="stat-card"><span class="stat-card-num" id="stat-today">—</span><span class="stat-card-label">Registered today</span></div>
+      <div class="stat-card"><span class="stat-card-num" id="stat-pending-lab">—</span><span class="stat-card-label">Pending lab tests</span></div>
+      <div class="stat-card"><span class="stat-card-num" id="stat-low-stock">—</span><span class="stat-card-label">Low stock medicines</span></div>
+      <div class="stat-card"><span class="stat-card-num" id="stat-active-meds">—</span><span class="stat-card-label">Active medications</span></div>
+      <div class="stat-card"><span class="stat-card-num" id="stat-consults-week">—</span><span class="stat-card-label">Consultations this week</span></div>
+    </div>
+
+    <div class="workspace">
+
+      <section class="panel list-panel">
+        <div class="panel-head"><h2>Recent consultations</h2></div>
+        <div id="recent-consults"><p class="empty-state">Loading…</p></div>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head"><h2>Recently registered patients</h2></div>
+        <div id="recent-patients"><p class="empty-state">Loading…</p></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="reports.js"></script>
+</body>
+</html>
