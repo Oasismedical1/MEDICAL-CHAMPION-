@@ -224,6 +224,11 @@ function renderDrawerView(p) {
       <button class="btn-ghost btn-small" id="link-family-btn">+ Link</button>
     </div>
     <div id="family-list"><p class="empty-state small">Loading…</p></div>
+
+    <div class="vitals-head">
+      <h4>Lab results</h4>
+    </div>
+    <div id="lab-results-list"><p class="empty-state small">Loading…</p></div>
   `;
 
   document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
@@ -241,7 +246,44 @@ function renderDrawerView(p) {
   loadDocuments(p);
   loadImmunizations(p);
   loadFamilyLinks(p);
+  loadLabResults(p);
   loadAvatar(p);
+}
+
+// ---------- Lab results (read-only here; requested/entered from the Laboratory page) ----------
+async function loadLabResults(p) {
+  const listEl = document.getElementById('lab-results-list');
+  if (!listEl) return;
+
+  const { data, error } = await client
+    .from('lab_tests')
+    .select('*')
+    .eq('patient_id', p.id)
+    .order('requested_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="empty-state small">Couldn't load lab results.</p>`;
+    return;
+  }
+  if (!data.length) {
+    listEl.innerHTML = `<p class="empty-state small">No lab tests requested yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = data.map(t => {
+    const flagClass = (t.result_flag === 'critical' || t.result_flag === 'abnormal') ? ' vital-flag' : '';
+    return `
+      <div class="med-entry">
+        <div class="med-top">
+          <span class="med-name">${t.test_name}</span>
+          <span class="med-status med-status-${t.status === 'completed' ? 'completed' : 'active'}">${t.status}</span>
+        </div>
+        ${t.status === 'completed'
+          ? `<div class="med-meta">Result: ${t.result_value || '—'} ${t.reference_range ? `(ref: ${t.reference_range})` : ''} <span class="vitals-chip${flagClass}">${t.result_flag || 'normal'}</span></div>`
+          : `<div class="med-meta">Requested ${new Date(t.requested_at).toLocaleDateString()}</div>`}
+      </div>
+    `;
+  }).join('');
 }
 
 // ---------- Family links ----------
