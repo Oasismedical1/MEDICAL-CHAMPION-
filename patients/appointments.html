@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — Appointments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="appointments.html" class="nav-item active"><span class="nav-ic">🗓</span>Appointments</a></li>
+      <li><a href="pharmacy.html" class="nav-item"><span class="nav-ic">℞</span>Pharmacy</a></li>
+      <li><a href="lab.html" class="nav-item"><span class="nav-ic">⚗</span>Laboratory</a></li>
+      <li><a href="reports.html" class="nav-item"><span class="nav-ic">▤</span>Reports</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Appointments &amp; Queue</h1>
+        <p class="sub">Book visits, manage today's queue, and track patient flow.</p>
+      </div>
+    </header>
+
+    <div class="workspace">
+
+      <section class="panel form-panel">
+        <div class="panel-head"><h2>Book appointment</h2></div>
+
+        <div class="edit-field"><label>Patient</label>
+          <input type="text" id="appt-patient-search" placeholder="Search patient by name, UPI, or phone…">
+          <div id="appt-patient-results" class="search-results"></div>
+          <input type="hidden" id="appt-patient-id">
+        </div>
+        <p class="form-status" id="appt-selected-patient"></p>
+
+        <div class="grid-2">
+          <div class="edit-field"><label>Date</label><input type="date" id="appt-date"></div>
+          <div class="edit-field"><label>Time</label><input type="time" id="appt-time"></div>
+          <div class="edit-field"><label>Visit type</label><input id="appt-type" placeholder="e.g. General consultation, ANC"></div>
+          <div class="edit-field"><label>Priority</label>
+            <select id="appt-priority">
+              <option value="normal">Normal</option>
+              <option value="priority">Priority</option>
+              <option value="emergency">Emergency</option>
+            </select>
+          </div>
+        </div>
+        <div class="edit-field"><label>Notes</label><textarea id="appt-notes" rows="2"></textarea></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="appt-book-btn">Book appointment</button>
+        </div>
+        <p class="form-status" id="appt-book-status"></p>
+
+        <div class="panel-head" style="margin-top:26px;"><h2>Upcoming (not today)</h2></div>
+        <div id="upcoming-list"><p class="empty-state">Loading…</p></div>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head">
+          <h2>Today's queue</h2>
+          <span class="upi-preview" id="queue-date-label"></span>
+        </div>
+        <div class="patient-list" id="queue-list"><p class="empty-state">Loading…</p></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="appointments.js"></script>
+</body>
+</html>
