@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — Billing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="appointments.html" class="nav-item"><span class="nav-ic">🗓</span>Appointments</a></li>
+      <li><a href="pharmacy.html" class="nav-item"><span class="nav-ic">℞</span>Pharmacy</a></li>
+      <li><a href="lab.html" class="nav-item"><span class="nav-ic">⚗</span>Laboratory</a></li>
+      <li><a href="billing.html" class="nav-item active"><span class="nav-ic">💵</span>Billing</a></li>
+      <li><a href="reports.html" class="nav-item"><span class="nav-ic">▤</span>Reports</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Billing</h1>
+        <p class="sub">Create itemized bills and record payments.</p>
+      </div>
+    </header>
+
+    <div class="workspace">
+
+      <section class="panel form-panel">
+        <div class="panel-head">
+          <h2>New bill</h2>
+          <span class="upi-preview" id="invoice-preview">INV-2026-000001</span>
+        </div>
+
+        <div class="edit-field"><label>Patient</label>
+          <input type="text" id="bill-patient-search" placeholder="Search patient by name, UPI, or phone…">
+          <div id="bill-patient-results" class="search-results"></div>
+          <input type="hidden" id="bill-patient-id">
+        </div>
+        <p class="form-status" id="bill-selected-patient"></p>
+
+        <div class="grid-2">
+          <div class="edit-field"><label>Insurance provider (optional)</label><input id="bill-insurance-provider"></div>
+          <div class="edit-field"><label>Membership number</label><input id="bill-membership-number"></div>
+        </div>
+
+        <div id="bill-items-rows"></div>
+        <button type="button" class="btn-ghost btn-small" id="add-item-row-btn" style="margin-top:8px;">+ Add line item</button>
+
+        <p class="form-status" id="bill-total-display" style="font-weight:600;"></p>
+
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="create-bill-btn">Create bill</button>
+        </div>
+        <p class="form-status" id="bill-create-status"></p>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head"><h2>Recent bills</h2></div>
+        <div id="bills-list"><p class="empty-state">Loading…</p></div>
+      </section>
+
+    </div>
+
+    <div class="workspace" style="margin-top:22px;">
+      <section class="panel form-panel">
+        <div class="panel-head"><h2>Record expense</h2></div>
+        <div class="grid-2">
+          <div class="edit-field"><label>Category</label>
+            <select id="exp-category">
+              <option>Medicine Purchases</option>
+              <option>Laboratory Reagents</option>
+              <option>Equipment Maintenance</option>
+              <option>Fuel</option>
+              <option>Utilities</option>
+              <option>Rent</option>
+              <option>Salaries</option>
+              <option>Office Supplies</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="edit-field"><label>Amount (UGX)</label><input type="number" id="exp-amount" min="0"></div>
+          <div class="edit-field"><label>Supplier</label><input id="exp-supplier"></div>
+          <div class="edit-field"><label>Description</label><input id="exp-description"></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="save-expense-btn">Save expense</button>
+        </div>
+        <p class="form-status" id="expense-status"></p>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head"><h2>Recent expenses</h2></div>
+        <div id="expenses-list"><p class="empty-state">Loading…</p></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="billing.js"></script>
+</body>
+</html>
