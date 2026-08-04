@@ -1052,4 +1052,8 @@ if (signOutBtn) {
   const connected = await checkConnection();
   if (connected) await loadPatients();
   else els.upiPreview.textContent = nextUpi(0, 'Soroti');
+
+  const params = new URLSearchParams(window.location.search);
+  const jumpToId = params.get('patient');
+  if (jumpToId) openDrawer(jumpToId);
 })();
