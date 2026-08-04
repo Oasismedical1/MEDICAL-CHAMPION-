@@ -236,3 +236,11 @@ h2{font-size:17px;color:var(--primary-dark);}
   border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-top:10px;
 }
 .doc-name{font-weight:600; font-size:13px;}
+
+.search-results{
+  border:1px solid var(--line); border-radius:7px; margin-top:4px;
+  max-height:180px; overflow-y:auto; background:#fff;
+}
+.search-result{padding:8px 10px; font-size:13px; cursor:pointer; border-bottom:1px solid var(--line);}
+.search-result:last-child{border-bottom:none;}
+.search-result:hover{background:#F7FBFA;}
