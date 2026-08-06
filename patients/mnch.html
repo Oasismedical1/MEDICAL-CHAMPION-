@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — MNCH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="appointments.html" class="nav-item"><span class="nav-ic">🗓</span>Appointments</a></li>
+      <li><a href="inpatient.html" class="nav-item"><span class="nav-ic">🛏</span>Inpatient</a></li>
+      <li><a href="mnch.html" class="nav-item active"><span class="nav-ic">🤱</span>MNCH</a></li>
+      <li><a href="pharmacy.html" class="nav-item"><span class="nav-ic">℞</span>Pharmacy</a></li>
+      <li><a href="lab.html" class="nav-item"><span class="nav-ic">⚗</span>Laboratory</a></li>
+      <li><a href="radiology.html" class="nav-item"><span class="nav-ic">🩻</span>Radiology</a></li>
+      <li><a href="inventory.html" class="nav-item"><span class="nav-ic">📦</span>Inventory</a></li>
+      <li><a href="billing.html" class="nav-item"><span class="nav-ic">💵</span>Billing</a></li>
+      <li><a href="reports.html" class="nav-item"><span class="nav-ic">▤</span>Reports</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Maternal, Newborn &amp; Child Health</h1>
+        <p class="sub">Register pregnancies, track ANC visits, record delivery and PNC.</p>
+      </div>
+    </header>
+
+    <div class="workspace">
+
+      <section class="panel form-panel">
+        <div class="panel-head"><h2>Register pregnancy</h2></div>
+
+        <div class="edit-field"><label>Patient</label>
+          <input type="text" id="mnch-patient-search" placeholder="Search patient by name, UPI, or phone…">
+          <div id="mnch-patient-results" class="search-results"></div>
+          <input type="hidden" id="mnch-patient-id">
+        </div>
+        <p class="form-status" id="mnch-selected-patient"></p>
+
+        <div class="grid-2">
+          <div class="edit-field"><label>LMP (last menstrual period)</label><input type="date" id="mnch-lmp"></div>
+          <div class="edit-field"><label>EDD (estimated)</label><input type="text" id="mnch-edd" disabled></div>
+          <div class="edit-field"><label>Gravida</label><input type="number" id="mnch-gravida" min="1"></div>
+          <div class="edit-field"><label>Para</label><input type="number" id="mnch-para" min="0"></div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="register-preg-btn">Register pregnancy</button>
+        </div>
+        <p class="form-status" id="register-preg-status"></p>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head"><h2>Active pregnancies</h2></div>
+        <div class="patient-list" id="pregnancies-list"><p class="empty-state">Loading…</p></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="mnch.js"></script>
+</body>
+</html>
