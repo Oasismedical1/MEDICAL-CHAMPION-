@@ -229,6 +229,11 @@ function renderDrawerView(p) {
       <h4>Lab results</h4>
     </div>
     <div id="lab-results-list"><p class="empty-state small">Loading…</p></div>
+
+    <div class="vitals-head">
+      <h4>Radiology reports</h4>
+    </div>
+    <div id="radiology-results-list"><p class="empty-state small">Loading…</p></div>
   `;
 
   document.getElementById('edit-btn').addEventListener('click', () => renderDrawerEdit(p));
@@ -247,7 +252,41 @@ function renderDrawerView(p) {
   loadImmunizations(p);
   loadFamilyLinks(p);
   loadLabResults(p);
+  loadRadiologyResults(p);
   loadAvatar(p);
+}
+
+// ---------- Radiology results (read-only; requested/reported from the Radiology page) ----------
+async function loadRadiologyResults(p) {
+  const listEl = document.getElementById('radiology-results-list');
+  if (!listEl) return;
+
+  const { data, error } = await client
+    .from('radiology_orders')
+    .select('*')
+    .eq('patient_id', p.id)
+    .order('requested_at', { ascending: false });
+
+  if (error) {
+    listEl.innerHTML = `<p class="empty-state small">Couldn't load radiology reports.</p>`;
+    return;
+  }
+  if (!data.length) {
+    listEl.innerHTML = `<p class="empty-state small">No radiology exams requested yet.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = data.map(o => `
+    <div class="med-entry">
+      <div class="med-top">
+        <span class="med-name">${o.exam_type}</span>
+        <span class="med-status med-status-${o.status === 'completed' ? 'completed' : 'active'}">${o.status}</span>
+      </div>
+      ${o.status === 'completed'
+        ? `<div class="med-meta">${o.impression || o.report_text || 'No findings recorded'}</div>`
+        : `<div class="med-meta">Requested ${new Date(o.requested_at).toLocaleDateString()}</div>`}
+    </div>
+  `).join('');
 }
 
 // ---------- Lab results (read-only here; requested/entered from the Laboratory page) ----------
