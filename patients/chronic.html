@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — Chronic Disease / HIV / TB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="appointments.html" class="nav-item"><span class="nav-ic">🗓</span>Appointments</a></li>
+      <li><a href="inpatient.html" class="nav-item"><span class="nav-ic">🛏</span>Inpatient</a></li>
+      <li><a href="mnch.html" class="nav-item"><span class="nav-ic">🤱</span>MNCH</a></li>
+      <li><a href="chronic.html" class="nav-item active"><span class="nav-ic">📋</span>Chronic Care</a></li>
+      <li><a href="pharmacy.html" class="nav-item"><span class="nav-ic">℞</span>Pharmacy</a></li>
+      <li><a href="lab.html" class="nav-item"><span class="nav-ic">⚗</span>Laboratory</a></li>
+      <li><a href="radiology.html" class="nav-item"><span class="nav-ic">🩻</span>Radiology</a></li>
+      <li><a href="inventory.html" class="nav-item"><span class="nav-ic">📦</span>Inventory</a></li>
+      <li><a href="billing.html" class="nav-item"><span class="nav-ic">💵</span>Billing</a></li>
+      <li><a href="reports.html" class="nav-item"><span class="nav-ic">▤</span>Reports</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Chronic Disease, HIV &amp; TB Care</h1>
+        <p class="sub">Enroll patients into a care program and track follow-up visits.</p>
+      </div>
+    </header>
+
+    <div class="workspace">
+
+      <section class="panel form-panel">
+        <div class="panel-head"><h2>Enroll patient</h2></div>
+
+        <div class="edit-field"><label>Patient</label>
+          <input type="text" id="cd-patient-search" placeholder="Search patient by name, UPI, or phone…">
+          <div id="cd-patient-results" class="search-results"></div>
+          <input type="hidden" id="cd-patient-id">
+        </div>
+        <p class="form-status" id="cd-selected-patient"></p>
+
+        <div class="edit-field"><label>Program</label>
+          <select id="cd-program">
+            <option>Hypertension</option>
+            <option>Diabetes</option>
+            <option>HIV</option>
+            <option>Tuberculosis</option>
+            <option>Asthma</option>
+            <option>Epilepsy</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="edit-field"><label>Notes</label><textarea id="cd-notes" rows="2" placeholder="Regimen, initial plan, etc."></textarea></div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="enroll-btn">Enroll</button>
+        </div>
+        <p class="form-status" id="enroll-status"></p>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="panel-head">
+          <h2>Active enrollments</h2>
+          <select id="program-filter" style="width:auto;">
+            <option value="">All programs</option>
+            <option>Hypertension</option>
+            <option>Diabetes</option>
+            <option>HIV</option>
+            <option>Tuberculosis</option>
+            <option>Asthma</option>
+            <option>Epilepsy</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="patient-list" id="enrollments-list"><p class="empty-state">Loading…</p></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="chronic.js"></script>
+</body>
+</html>
