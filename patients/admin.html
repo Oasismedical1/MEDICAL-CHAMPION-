@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEDICAL-CHAMPION — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-page-roles="Admin">
+
+<div class="shell">
+
+  <nav class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MC</span>
+      <span class="brand-name">MEDICAL<br>CHAMPION</span>
+    </div>
+    <ul class="nav-list">
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">⌂</span>Home</a></li>
+      <li><a href="index.html" class="nav-item"><span class="nav-ic">＋</span>Patients</a></li>
+      <li><a href="appointments.html" class="nav-item"><span class="nav-ic">🗓</span>Appointments</a></li>
+      <li><a href="inpatient.html" class="nav-item"><span class="nav-ic">🛏</span>Inpatient</a></li>
+      <li><a href="mnch.html" class="nav-item"><span class="nav-ic">🤱</span>MNCH</a></li>
+      <li><a href="chronic.html" class="nav-item"><span class="nav-ic">📋</span>Chronic Care</a></li>
+      <li><a href="telemedicine.html" class="nav-item"><span class="nav-ic">💻</span>Telemedicine</a></li>
+      <li><a href="pharmacy.html" class="nav-item"><span class="nav-ic">℞</span>Pharmacy</a></li>
+      <li><a href="lab.html" class="nav-item"><span class="nav-ic">⚗</span>Laboratory</a></li>
+      <li><a href="radiology.html" class="nav-item"><span class="nav-ic">🩻</span>Radiology</a></li>
+      <li><a href="inventory.html" class="nav-item"><span class="nav-ic">📦</span>Inventory</a></li>
+      <li data-roles="Admin,Cashier"><a href="billing.html" class="nav-item"><span class="nav-ic">💵</span>Billing</a></li>
+      <li data-roles="Admin,HR Officer"><a href="hr.html" class="nav-item"><span class="nav-ic">🧑‍⚕️</span>HR</a></li>
+      <li data-roles="Admin"><a href="admin.html" class="nav-item active"><span class="nav-ic">🛡</span>Admin</a></li>
+      <li><a href="reports.html" class="nav-item"><span class="nav-ic">▤</span>Reports</a></li>
+    </ul>
+    <div class="sidebar-foot">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking connection…</span>
+    </div>
+    <div class="sidebar-user">
+      <span id="user-email">…</span>
+      <button id="signout-btn" type="button">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Admin</h1>
+        <p class="sub">Manage staff accounts and roles.</p>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <section class="panel list-panel" style="grid-column:1 / -1;">
+        <div class="panel-head"><h2>Staff accounts</h2></div>
+        <p class="form-status">Roles: Admin, Clinician, Nurse, Pharmacist, Lab Tech, Radiographer, Cashier, Receptionist, HR Officer. Admin and Cashier can see Billing; Admin and HR Officer can see HR. Everyone else sees the clinical modules.</p>
+        <div id="accounts-list"><p class="empty-state">Loading…</p></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="auth-guard.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
