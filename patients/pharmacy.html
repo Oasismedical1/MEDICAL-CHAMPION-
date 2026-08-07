@@ -58,14 +58,28 @@
 
       <section class="panel form-panel">
         <div class="panel-head">
-          <h2>Dispense medicine</h2>
+          <h2>Dispense / Sell medicine</h2>
         </div>
-        <div class="edit-field"><label>Patient</label>
-          <input type="text" id="dispense-patient-search" placeholder="Search patient by name, UPI, or phone…">
-          <div id="dispense-patient-results" class="search-results"></div>
-          <input type="hidden" id="dispense-patient-id">
+
+        <div class="edit-field"><label>Customer type</label>
+          <select id="customer-type">
+            <option value="patient">Registered patient</option>
+            <option value="walkin">Walk-in / OTC customer</option>
+          </select>
         </div>
-        <p class="form-status" id="dispense-selected-patient"></p>
+
+        <div id="patient-select-area">
+          <div class="edit-field"><label>Patient</label>
+            <input type="text" id="dispense-patient-search" placeholder="Search patient by name, UPI, or phone…">
+            <div id="dispense-patient-results" class="search-results"></div>
+            <input type="hidden" id="dispense-patient-id">
+          </div>
+          <p class="form-status" id="dispense-selected-patient"></p>
+        </div>
+
+        <div id="walkin-area" style="display:none;">
+          <div class="edit-field"><label>Customer name (optional)</label><input id="walkin-name" placeholder="e.g. Cash sale, or a name"></div>
+        </div>
 
         <div class="grid-2">
           <div class="edit-field"><label>Medicine</label>
@@ -73,14 +87,37 @@
           </div>
           <div class="edit-field"><label>Quantity</label><input type="number" id="dispense-qty" min="1" value="1"></div>
         </div>
+        <div class="form-actions" style="justify-content:flex-start;">
+          <button type="button" class="btn-ghost btn-small" id="add-to-cart-btn">+ Add to sale</button>
+        </div>
+
+        <div class="panel-head" style="margin-top:16px;"><h2 style="font-size:14px;">Current sale</h2></div>
+        <div id="cart-items"><p class="empty-state small">No items added yet.</p></div>
+        <p class="form-status" id="dispense-total-display" style="font-weight:600;"></p>
+
+        <div class="grid-2">
+          <div class="edit-field"><label>Payment method</label>
+            <select id="dispense-payment-method">
+              <option>Cash</option>
+              <option>Mobile Money</option>
+              <option>Debit Card</option>
+              <option>Credit Card</option>
+              <option>Insurance</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="edit-field"><label>Amount received (UGX)</label><input type="number" id="dispense-amount-received" min="0"></div>
+        </div>
+        <p class="form-status" id="dispense-change-display"></p>
 
         <div class="form-actions">
-          <button type="button" class="btn-primary" id="dispense-btn">Dispense</button>
+          <button type="button" class="btn-primary" id="dispense-btn">Complete sale</button>
         </div>
         <p class="form-status" id="dispense-status"></p>
+        <div id="receipt-area"></div>
 
         <div class="panel-head" style="margin-top:26px;">
-          <h2>Recent dispenses</h2>
+          <h2>Recent sales</h2>
         </div>
         <div id="dispense-log"><p class="empty-state">Loading…</p></div>
       </section>
