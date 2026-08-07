@@ -6,11 +6,27 @@ const els = {
   medicineList: document.getElementById('medicine-list'),
   addMedicineBtn: document.getElementById('add-medicine-btn'),
   addMedicineForm: document.getElementById('add-medicine-form'),
+
+  customerType: document.getElementById('customer-type'),
+  patientSelectArea: document.getElementById('patient-select-area'),
+  walkinArea: document.getElementById('walkin-area'),
+  walkinName: document.getElementById('walkin-name'),
+
   dispenseMedicine: document.getElementById('dispense-medicine'),
   dispenseQty: document.getElementById('dispense-qty'),
+  addToCartBtn: document.getElementById('add-to-cart-btn'),
+  cartItems: document.getElementById('cart-items'),
+  totalDisplay: document.getElementById('dispense-total-display'),
+
+  paymentMethod: document.getElementById('dispense-payment-method'),
+  amountReceived: document.getElementById('dispense-amount-received'),
+  changeDisplay: document.getElementById('dispense-change-display'),
+
   dispenseBtn: document.getElementById('dispense-btn'),
   dispenseStatus: document.getElementById('dispense-status'),
+  receiptArea: document.getElementById('receipt-area'),
   dispenseLog: document.getElementById('dispense-log'),
+
   patientSearch: document.getElementById('dispense-patient-search'),
   patientResults: document.getElementById('dispense-patient-results'),
   patientIdField: document.getElementById('dispense-patient-id'),
@@ -19,6 +35,7 @@ const els = {
 
 let medicines = [];
 let patients = [];
+let cart = []; // { medicineId, name, qty, unitPrice }
 
 // ---------- Connection ----------
 async function checkConnection() {
@@ -32,6 +49,13 @@ async function checkConnection() {
   els.connLabel.textContent = 'Connected';
   return true;
 }
+
+// ---------- Customer type toggle ----------
+els.customerType.addEventListener('change', () => {
+  const isWalkin = els.customerType.value === 'walkin';
+  els.patientSelectArea.style.display = isWalkin ? 'none' : 'block';
+  els.walkinArea.style.display = isWalkin ? 'block' : 'none';
+});
 
 // ---------- Medicines ----------
 async function loadMedicines() {
@@ -122,7 +146,7 @@ async function saveNewMedicine() {
   await loadMedicines();
 }
 
-// ---------- Patient search for dispensing ----------
+// ---------- Patient search (for registered-patient sales) ----------
 async function loadPatients() {
   const { data, error } = await client.from('patients').select('id, first_name, surname, upi, phone');
   if (!error) patients = data || [];
@@ -156,99 +180,209 @@ els.patientSearch.addEventListener('input', () => {
   });
 });
 
-// ---------- Dispense ----------
-els.dispenseBtn.addEventListener('click', async () => {
-  const patientId = els.patientIdField.value;
-  const medicineId = els.dispenseMedicine.value;
+// ---------- Cart ----------
+els.addToCartBtn.addEventListener('click', () => {
+  const medId = els.dispenseMedicine.value;
   const qty = Number(els.dispenseQty.value);
+  const med = medicines.find(m => m.id === medId);
 
-  if (!patientId) {
-    els.dispenseStatus.textContent = 'Select a patient first.';
-    els.dispenseStatus.className = 'form-status err';
-    return;
-  }
-  if (!medicineId || !qty || qty < 1) {
-    els.dispenseStatus.textContent = 'Select a medicine and a valid quantity.';
-    els.dispenseStatus.className = 'form-status err';
-    return;
-  }
-
-  const med = medicines.find(m => m.id === medicineId);
   if (!med) return;
-
-  if (qty > med.stock_qty) {
-    els.dispenseStatus.textContent = `Not enough stock — only ${med.stock_qty} left.`;
+  if (!qty || qty < 1) {
+    els.dispenseStatus.textContent = 'Enter a valid quantity.';
     els.dispenseStatus.className = 'form-status err';
     return;
   }
 
-  els.dispenseStatus.textContent = 'Dispensing…';
+  const alreadyInCart = cart.filter(c => c.medicineId === medId).reduce((sum, c) => sum + c.qty, 0);
+  if (alreadyInCart + qty > med.stock_qty) {
+    els.dispenseStatus.textContent = `Not enough stock — only ${med.stock_qty} available.`;
+    els.dispenseStatus.className = 'form-status err';
+    return;
+  }
+
+  cart.push({
+    medicineId: med.id,
+    name: `${med.name}${med.strength ? ' ' + med.strength : ''}`,
+    qty,
+    unitPrice: med.unit_price || 0,
+  });
+
+  els.dispenseStatus.textContent = '';
+  els.dispenseQty.value = 1;
+  renderCart();
+});
+
+function renderCart() {
+  if (!cart.length) {
+    els.cartItems.innerHTML = `<p class="empty-state small">No items added yet.</p>`;
+    els.totalDisplay.textContent = '';
+    return;
+  }
+
+  els.cartItems.innerHTML = cart.map((item, i) => `
+    <div class="doc-entry">
+      <div>
+        <div class="doc-name">${item.name}</div>
+        <div class="med-meta">${item.qty} × UGX ${item.unitPrice.toLocaleString()} = UGX ${(item.qty * item.unitPrice).toLocaleString()}</div>
+      </div>
+      <button class="btn-ghost btn-small remove-cart-item" data-index="${i}">Remove</button>
+    </div>
+  `).join('');
+
+  els.cartItems.querySelectorAll('.remove-cart-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      cart.splice(Number(btn.dataset.index), 1);
+      renderCart();
+    });
+  });
+
+  const total = cartTotal();
+  els.totalDisplay.textContent = `Total: UGX ${total.toLocaleString()}`;
+  updateChange();
+}
+
+function cartTotal() {
+  return cart.reduce((sum, c) => sum + c.qty * c.unitPrice, 0);
+}
+
+els.amountReceived.addEventListener('input', updateChange);
+
+function updateChange() {
+  const received = Number(els.amountReceived.value) || 0;
+  const total = cartTotal();
+  const change = received - total;
+  if (!els.amountReceived.value) {
+    els.changeDisplay.textContent = '';
+    return;
+  }
+  els.changeDisplay.textContent = change >= 0
+    ? `Change due: UGX ${change.toLocaleString()}`
+    : `Short by: UGX ${Math.abs(change).toLocaleString()}`;
+  els.changeDisplay.className = change >= 0 ? 'form-status ok' : 'form-status err';
+}
+
+// ---------- Complete sale ----------
+els.dispenseBtn.addEventListener('click', async () => {
+  if (!cart.length) {
+    els.dispenseStatus.textContent = 'Add at least one item to the sale.';
+    els.dispenseStatus.className = 'form-status err';
+    return;
+  }
+
+  const isWalkin = els.customerType.value === 'walkin';
+  const patientId = isWalkin ? null : (els.patientIdField.value || null);
+  const customerName = isWalkin ? els.walkinName.value.trim() : null;
+
+  if (!isWalkin && !patientId) {
+    els.dispenseStatus.textContent = 'Select a patient, or switch to Walk-in / OTC customer.';
+    els.dispenseStatus.className = 'form-status err';
+    return;
+  }
+
+  els.dispenseStatus.textContent = 'Processing sale…';
   els.dispenseStatus.className = 'form-status';
 
-  const unitPrice = med.unit_price || 0;
-  const { error: dispenseErr } = await client.from('dispenses').insert([{
-    patient_id: patientId,
-    medicine_id: medicineId,
-    quantity: qty,
-    unit_price: unitPrice,
-    total_price: unitPrice * qty,
-  }]);
+  const total = cartTotal();
+  const received = Number(els.amountReceived.value) || 0;
+  const change = received - total;
 
-  if (dispenseErr) {
-    els.dispenseStatus.textContent = `Couldn't dispense: ${dispenseErr.message}`;
+  const { data: sale, error: saleErr } = await client
+    .from('pos_sales')
+    .insert([{
+      patient_id: patientId,
+      customer_name: customerName,
+      payment_method: els.paymentMethod.value,
+      total_amount: total,
+      amount_received: received,
+      change_due: change > 0 ? change : 0,
+    }])
+    .select()
+    .single();
+
+  if (saleErr) {
+    els.dispenseStatus.textContent = `Couldn't process sale: ${saleErr.message}`;
     els.dispenseStatus.className = 'form-status err';
     return;
   }
 
-  const { error: stockErr } = await client
-    .from('medicines')
-    .update({ stock_qty: med.stock_qty - qty })
-    .eq('id', medicineId);
+  // Insert one dispense row per cart item, and deduct stock
+  for (const item of cart) {
+    await client.from('dispenses').insert([{
+      patient_id: patientId,
+      medicine_id: item.medicineId,
+      quantity: item.qty,
+      unit_price: item.unitPrice,
+      total_price: item.qty * item.unitPrice,
+      sale_id: sale.id,
+    }]);
 
-  if (stockErr) {
-    els.dispenseStatus.textContent = `Dispensed but stock update failed: ${stockErr.message}`;
-    els.dispenseStatus.className = 'form-status err';
-  } else {
-    els.dispenseStatus.textContent = `Dispensed ${qty} × ${med.name} to ${els.patientSearch.value}.`;
-    els.dispenseStatus.className = 'form-status ok';
+    const med = medicines.find(m => m.id === item.medicineId);
+    if (med) {
+      await client.from('medicines').update({ stock_qty: med.stock_qty - item.qty }).eq('id', item.medicineId);
+    }
   }
 
+  showReceipt(sale, cart, isWalkin ? (customerName || 'Walk-in customer') : els.patientSearch.value);
+
+  els.dispenseStatus.textContent = 'Sale completed.';
+  els.dispenseStatus.className = 'form-status ok';
+
+  // reset
+  cart = [];
+  renderCart();
   els.patientSearch.value = '';
   els.patientIdField.value = '';
   els.selectedPatientLabel.textContent = '';
-  els.dispenseQty.value = 1;
+  els.walkinName.value = '';
+  els.amountReceived.value = '';
+  els.changeDisplay.textContent = '';
 
   await loadMedicines();
   await loadDispenseLog();
 });
 
-// ---------- Recent dispenses ----------
+function showReceipt(sale, items, customerLabel) {
+  els.receiptArea.innerHTML = `
+    <div class="med-entry" style="margin-top:14px; border:1px dashed var(--accent);">
+      <div class="med-top"><span class="med-name">Receipt</span><span class="med-meta">${new Date(sale.created_at).toLocaleString()}</span></div>
+      <div class="med-meta" style="margin-top:6px;">${customerLabel}</div>
+      <div style="margin-top:8px;">
+        ${items.map(i => `<div class="consult-text">${i.qty} × ${i.name} — UGX ${(i.qty * i.unitPrice).toLocaleString()}</div>`).join('')}
+      </div>
+      <div class="med-meta" style="margin-top:8px; font-weight:600;">Total: UGX ${sale.total_amount.toLocaleString()}</div>
+      <div class="med-meta">Paid (${sale.payment_method}): UGX ${sale.amount_received.toLocaleString()}</div>
+      ${sale.change_due > 0 ? `<div class="med-meta">Change given: UGX ${sale.change_due.toLocaleString()}</div>` : ''}
+    </div>
+  `;
+}
+
+// ---------- Recent sales ----------
 async function loadDispenseLog() {
   const { data, error } = await client
-    .from('dispenses')
+    .from('pos_sales')
     .select('*')
-    .order('dispensed_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(15);
 
   if (error) {
-    els.dispenseLog.innerHTML = `<p class="empty-state">Couldn't load dispense log.</p>`;
+    els.dispenseLog.innerHTML = `<p class="empty-state">Couldn't load recent sales.</p>`;
     return;
   }
   if (!data.length) {
-    els.dispenseLog.innerHTML = `<p class="empty-state">No dispenses recorded yet.</p>`;
+    els.dispenseLog.innerHTML = `<p class="empty-state">No sales recorded yet.</p>`;
     return;
   }
 
-  els.dispenseLog.innerHTML = data.map(d => {
-    const med = medicines.find(m => m.id === d.medicine_id);
-    const pat = patients.find(p => p.id === d.patient_id);
+  els.dispenseLog.innerHTML = data.map(s => {
+    const pat = patients.find(p => p.id === s.patient_id);
+    const label = pat ? `${pat.first_name} ${pat.surname}` : (s.customer_name || 'Walk-in customer');
     return `
       <div class="doc-entry">
         <div>
-          <div class="doc-name">${med ? med.name : 'Unknown medicine'} × ${d.quantity}</div>
-          <div class="med-meta">${pat ? `${pat.first_name} ${pat.surname}` : 'Unknown patient'} · ${new Date(d.dispensed_at).toLocaleString()}</div>
+          <div class="doc-name">${label}</div>
+          <div class="med-meta">${s.payment_method || ''} · ${new Date(s.created_at).toLocaleString()}</div>
         </div>
-        <div class="pr-meta">UGX ${d.total_price ?? 0}</div>
+        <div class="pr-meta">UGX ${s.total_amount.toLocaleString()}</div>
       </div>
     `;
   }).join('');
