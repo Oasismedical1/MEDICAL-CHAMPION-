@@ -40,6 +40,10 @@ h2{font-size:17px;color:var(--primary-dark);}
   display:flex;
   flex-direction:column;
   padding:24px 16px;
+  height:100vh;
+  position:sticky;
+  top:0;
+  overflow-y:auto;
 }
 .brand{display:flex; align-items:center; gap:10px; margin-bottom:32px;}
 .brand-mark{
