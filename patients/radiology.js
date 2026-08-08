@@ -14,6 +14,7 @@ const els = {
 };
 
 let patients = [];
+let completedExams = [];
 
 // ---------- Connection ----------
 async function checkConnection() {
@@ -32,7 +33,7 @@ async function checkConnection() {
 
 // ---------- Patients (for search) ----------
 async function loadPatients() {
-  const { data, error } = await client.from('patients').select('id, first_name, surname, upi, phone');
+  const { data, error } = await client.from('patients').select('id, first_name, surname, upi, phone, dob, sex');
   if (!error) patients = data || [];
 }
 
@@ -200,12 +201,14 @@ async function loadCompletedList() {
     els.completedList.innerHTML = `<p class="empty-state">Couldn't load reports.</p>`;
     return;
   }
-  if (!data.length) {
+  completedExams = data || [];
+
+  if (!completedExams.length) {
     els.completedList.innerHTML = `<p class="empty-state">No completed exams yet.</p>`;
     return;
   }
 
-  els.completedList.innerHTML = data.map(o => {
+  els.completedList.innerHTML = completedExams.map(o => {
     const pat = patients.find(p => p.id === o.patient_id);
     return `
       <div class="doc-entry">
@@ -213,7 +216,10 @@ async function loadCompletedList() {
           <div class="doc-name">${o.exam_type} — ${pat ? `${pat.first_name} ${pat.surname}` : 'Unknown patient'}</div>
           <div class="med-meta">${o.impression || o.report_text || 'No findings recorded'} · ${new Date(o.reported_at).toLocaleDateString()}</div>
         </div>
-        ${o.image_path ? `<button class="btn-ghost btn-small view-image-btn" data-path="${o.image_path}">View</button>` : ''}
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${o.image_path ? `<button class="btn-ghost btn-small view-image-btn" data-path="${o.image_path}">View</button>` : ''}
+          <button class="btn-ghost btn-small print-report-btn" data-id="${o.id}">🖨</button>
+        </div>
       </div>
     `;
   }).join('');
@@ -224,6 +230,54 @@ async function loadCompletedList() {
       if (!error && data) window.open(data.signedUrl, '_blank');
     });
   });
+
+  els.completedList.querySelectorAll('.print-report-btn').forEach(btn => {
+    btn.addEventListener('click', () => printRadiologyReport(btn.dataset.id));
+  });
+}
+
+async function printRadiologyReport(orderId) {
+  const o = completedExams.find(x => x.id === orderId);
+  if (!o) return;
+  const pat = patients.find(p => p.id === o.patient_id);
+  const header = await buildClinicHeaderHtml();
+
+  const patientBlock = pat ? `
+    <div class="med-meta">Patient: ${pat.first_name} ${pat.surname} (${pat.upi})</div>
+    <div class="med-meta">Sex: ${pat.sex || '—'} · DOB: ${pat.dob || '—'}</div>
+  ` : `<div class="med-meta">Patient: Unknown / not on file</div>`;
+
+  const receiptArea = document.getElementById('rad-receipt-area') || (() => {
+    const div = document.createElement('div');
+    div.id = 'rad-receipt-area';
+    els.completedList.parentElement.appendChild(div);
+    return div;
+  })();
+
+  receiptArea.innerHTML = `
+    <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
+      ${header}
+      <div class="med-top"><span class="med-name">Radiology Report — ${o.exam_type}</span></div>
+      ${patientBlock}
+      <div class="med-meta">Clinical indication: ${o.clinical_indication || '—'}</div>
+      <div class="med-meta">Requested: ${new Date(o.requested_at).toLocaleString()}</div>
+      <div class="med-meta">Reported: ${new Date(o.reported_at).toLocaleString()}</div>
+
+      <div class="vitals-head" style="margin-top:10px;"><h4>Findings</h4></div>
+      <div class="consult-text">${o.report_text || 'No findings recorded'}</div>
+
+      <div class="vitals-head" style="margin-top:10px;"><h4>Impression</h4></div>
+      <div class="consult-text">${o.impression || '—'}</div>
+
+      <div class="signature-block">
+        <div class="signature-line"><div class="line">Radiographer</div></div>
+        <div class="signature-line"><div class="line">Reporting Radiologist</div></div>
+      </div>
+    </div>
+    <button type="button" class="btn-ghost btn-small no-print" id="print-rad-report-btn" style="margin-top:8px;">🖨 Print report</button>
+  `;
+  document.getElementById('print-rad-report-btn').addEventListener('click', () => window.print());
+  receiptArea.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ---------- Sign out ----------
