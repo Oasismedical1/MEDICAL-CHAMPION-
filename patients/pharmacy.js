@@ -341,9 +341,11 @@ els.dispenseBtn.addEventListener('click', async () => {
   await loadDispenseLog();
 });
 
-function showReceipt(sale, items, customerLabel) {
+async function showReceipt(sale, items, customerLabel) {
+  const header = await buildClinicHeaderHtml();
   els.receiptArea.innerHTML = `
     <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
+      ${header}
       <div class="med-top"><span class="med-name">Receipt</span><span class="med-meta">${new Date(sale.created_at).toLocaleString()}</span></div>
       <div class="med-meta" style="margin-top:6px;">${customerLabel}</div>
       <div style="margin-top:8px;">
@@ -352,6 +354,7 @@ function showReceipt(sale, items, customerLabel) {
       <div class="med-meta" style="margin-top:8px; font-weight:600;">Total: UGX ${sale.total_amount.toLocaleString()}</div>
       <div class="med-meta">Paid (${sale.payment_method}): UGX ${sale.amount_received.toLocaleString()}</div>
       ${sale.change_due > 0 ? `<div class="med-meta">Change given: UGX ${sale.change_due.toLocaleString()}</div>` : ''}
+      <div class="med-meta" style="margin-top:6px;">Dispensed by: ${window.currentUser ? window.currentUser.email : ''}</div>
     </div>
     <button type="button" class="btn-ghost btn-small no-print" id="print-pharmacy-receipt-btn" style="margin-top:8px;">🖨 Print receipt</button>
   `;
