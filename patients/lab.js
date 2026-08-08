@@ -11,6 +11,8 @@ const els = {
   walkinName: document.getElementById('lab-walkin-name'),
   testName: document.getElementById('lab-test-name'),
   sampleType: document.getElementById('lab-sample-type'),
+  addTestBtn: document.getElementById('add-test-to-cart-btn'),
+  cartItems: document.getElementById('lab-cart-items'),
   amountCharged: document.getElementById('lab-amount-charged'),
   paymentMethod: document.getElementById('lab-payment-method'),
   amountReceived: document.getElementById('lab-amount-received'),
@@ -23,6 +25,7 @@ const els = {
 };
 
 let patients = [];
+let cart = []; // { testName, sampleType }
 
 // ---------- Connection ----------
 async function checkConnection() {
@@ -46,24 +49,9 @@ els.customerType.addEventListener('change', () => {
   els.walkinArea.style.display = isWalkin ? 'block' : 'none';
 });
 
-// ---------- Payment / change ----------
-els.amountReceived.addEventListener('input', updateChange);
-els.amountCharged.addEventListener('input', updateChange);
-
-function updateChange() {
-  if (!els.amountReceived.value) { els.changeDisplay.textContent = ''; return; }
-  const charged = Number(els.amountCharged.value) || 0;
-  const received = Number(els.amountReceived.value) || 0;
-  const change = received - charged;
-  els.changeDisplay.textContent = change >= 0
-    ? `Change due: UGX ${change.toLocaleString()}`
-    : `Short by: UGX ${Math.abs(change).toLocaleString()}`;
-  els.changeDisplay.className = change >= 0 ? 'form-status ok' : 'form-status err';
-}
-
 // ---------- Patients (for search) ----------
 async function loadPatients() {
-  const { data, error } = await client.from('patients').select('id, first_name, surname, upi, phone');
+  const { data, error } = await client.from('patients').select('id, first_name, surname, upi, phone, dob, sex');
   if (!error) patients = data || [];
 }
 
@@ -95,20 +83,72 @@ els.patientSearch.addEventListener('input', () => {
   });
 });
 
-// ---------- Request a test ----------
+// ---------- Cart of tests ----------
+els.addTestBtn.addEventListener('click', () => {
+  const name = els.testName.value.trim();
+  if (!name) {
+    els.requestStatus.textContent = 'Enter a test name first.';
+    els.requestStatus.className = 'form-status err';
+    return;
+  }
+  cart.push({ testName: name, sampleType: els.sampleType.value.trim() });
+  els.testName.value = '';
+  els.sampleType.value = '';
+  els.requestStatus.textContent = '';
+  renderCart();
+});
+
+function renderCart() {
+  if (!cart.length) {
+    els.cartItems.innerHTML = `<p class="empty-state small">No tests added yet.</p>`;
+    return;
+  }
+  els.cartItems.innerHTML = cart.map((t, i) => `
+    <div class="doc-entry">
+      <div>
+        <div class="doc-name">${t.testName}</div>
+        <div class="med-meta">${t.sampleType || 'sample n/a'}</div>
+      </div>
+      <button class="btn-ghost btn-small remove-cart-test" data-index="${i}">Remove</button>
+    </div>
+  `).join('');
+
+  els.cartItems.querySelectorAll('.remove-cart-test').forEach(btn => {
+    btn.addEventListener('click', () => {
+      cart.splice(Number(btn.dataset.index), 1);
+      renderCart();
+    });
+  });
+}
+
+// ---------- Payment / change ----------
+els.amountReceived.addEventListener('input', updateChange);
+els.amountCharged.addEventListener('input', updateChange);
+
+function updateChange() {
+  if (!els.amountReceived.value) { els.changeDisplay.textContent = ''; return; }
+  const charged = Number(els.amountCharged.value) || 0;
+  const received = Number(els.amountReceived.value) || 0;
+  const change = received - charged;
+  els.changeDisplay.textContent = change >= 0
+    ? `Change due: UGX ${change.toLocaleString()}`
+    : `Short by: UGX ${Math.abs(change).toLocaleString()}`;
+  els.changeDisplay.className = change >= 0 ? 'form-status ok' : 'form-status err';
+}
+
+// ---------- Submit order ----------
 els.requestBtn.addEventListener('click', async () => {
   const isWalkin = els.customerType.value === 'walkin';
   const patientId = isWalkin ? null : (els.patientIdField.value || null);
   const customerName = isWalkin ? els.walkinName.value.trim() : null;
-  const testName = els.testName.value.trim();
 
   if (!isWalkin && !patientId) {
     els.requestStatus.textContent = 'Select a patient, or switch to Walk-in / one-time test.';
     els.requestStatus.className = 'form-status err';
     return;
   }
-  if (!testName) {
-    els.requestStatus.textContent = 'Enter a test name.';
+  if (!cart.length) {
+    els.requestStatus.textContent = 'Add at least one test to the order.';
     els.requestStatus.className = 'form-status err';
     return;
   }
@@ -120,50 +160,66 @@ els.requestBtn.addEventListener('click', async () => {
   const received = Number(els.amountReceived.value) || 0;
   const change = received - charged;
 
-  const { data: order, error } = await client.from('lab_tests').insert([{
+  const { data: order, error: orderErr } = await client.from('lab_orders').insert([{
     patient_id: patientId,
     customer_name: customerName,
-    test_name: testName,
-    sample_type: els.sampleType.value.trim(),
-    amount_charged: charged,
     payment_method: els.paymentMethod.value,
+    amount_charged: charged,
     amount_received: received,
     change_due: change > 0 ? change : 0,
   }]).select().single();
 
-  if (error) {
-    els.requestStatus.textContent = `Couldn't save: ${error.message}`;
+  if (orderErr) {
+    els.requestStatus.textContent = `Couldn't save order: ${orderErr.message}`;
     els.requestStatus.className = 'form-status err';
     return;
   }
 
-  if (charged > 0) {
-    showReceipt(order, isWalkin ? (customerName || 'Walk-in customer') : els.patientSearch.value);
+  for (const t of cart) {
+    await client.from('lab_tests').insert([{
+      patient_id: patientId,
+      customer_name: customerName,
+      test_name: t.testName,
+      sample_type: t.sampleType,
+      order_id: order.id,
+    }]);
   }
 
-  els.requestStatus.textContent = 'Test requested.';
+  const customerLabel = isWalkin ? (customerName || 'Walk-in customer') : els.patientSearch.value;
+  await showOrderReceipt(order, cart, customerLabel);
+
+  els.requestStatus.textContent = 'Order submitted.';
   els.requestStatus.className = 'form-status ok';
   els.patientSearch.value = '';
   els.patientIdField.value = '';
   els.selectedPatientLabel.textContent = '';
-  els.testName.value = '';
-  els.sampleType.value = '';
   els.amountCharged.value = '';
   els.amountReceived.value = '';
   els.changeDisplay.textContent = '';
+  cart = [];
+  renderCart();
 
   await loadPendingList();
 });
 
-function showReceipt(order, customerLabel) {
+async function showOrderReceipt(order, tests, customerLabel) {
+  const header = await buildClinicHeaderHtml();
   els.receiptArea.innerHTML = `
     <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
-      <div class="med-top"><span class="med-name">Receipt</span><span class="med-meta">${new Date(order.requested_at).toLocaleString()}</span></div>
+      ${header}
+      <div class="med-top"><span class="med-name">Lab Order Receipt</span><span class="med-meta">${new Date(order.created_at).toLocaleString()}</span></div>
       <div class="med-meta" style="margin-top:6px;">${customerLabel}</div>
-      <div class="consult-text" style="margin-top:8px;">${order.test_name}${order.sample_type ? ` (${order.sample_type})` : ''}</div>
-      <div class="med-meta" style="margin-top:8px; font-weight:600;">Amount: UGX ${order.amount_charged.toLocaleString()}</div>
-      <div class="med-meta">Paid (${order.payment_method}): UGX ${order.amount_received.toLocaleString()}</div>
-      ${order.change_due > 0 ? `<div class="med-meta">Change given: UGX ${order.change_due.toLocaleString()}</div>` : ''}
+      <div style="margin-top:8px;">
+        ${tests.map(t => `<div class="consult-text">${t.testName}${t.sampleType ? ` (${t.sampleType})` : ''}</div>`).join('')}
+      </div>
+      ${order.amount_charged > 0 ? `
+        <div class="med-meta" style="margin-top:8px; font-weight:600;">Amount: UGX ${order.amount_charged.toLocaleString()}</div>
+        <div class="med-meta">Paid (${order.payment_method}): UGX ${order.amount_received.toLocaleString()}</div>
+        ${order.change_due > 0 ? `<div class="med-meta">Change given: UGX ${order.change_due.toLocaleString()}</div>` : ''}
+      ` : ''}
+      <div class="signature-block">
+        <div class="signature-line"><div class="line">Received by</div></div>
+      </div>
     </div>
     <button type="button" class="btn-ghost btn-small no-print" id="print-lab-receipt-btn" style="margin-top:8px;">🖨 Print receipt</button>
   `;
@@ -212,6 +268,7 @@ function renderResultForm(testId) {
     <div class="vitals-form">
       <div class="edit-field"><label>Result</label><input id="res-value" placeholder="e.g. Positive, 12.4 g/dL"></div>
       <div class="grid-2">
+        <div class="edit-field"><label>Unit</label><input id="res-unit" placeholder="e.g. g/dL, ×10⁹/L"></div>
         <div class="edit-field"><label>Reference range</label><input id="res-range" placeholder="e.g. 12-16 g/dL"></div>
         <div class="edit-field"><label>Flag</label>
           <select id="res-flag">
@@ -257,6 +314,8 @@ async function saveResult(testId) {
 }
 
 // ---------- Recently completed ----------
+let completedTests = [];
+
 async function loadCompletedList() {
   const { data, error } = await client
     .from('lab_tests')
@@ -269,25 +328,77 @@ async function loadCompletedList() {
     els.completedList.innerHTML = `<p class="empty-state">Couldn't load results.</p>`;
     return;
   }
-  if (!data.length) {
+  completedTests = data || [];
+
+  if (!completedTests.length) {
     els.completedList.innerHTML = `<p class="empty-state">No completed tests yet.</p>`;
     return;
   }
 
-  els.completedList.innerHTML = data.map(t => {
+  els.completedList.innerHTML = completedTests.map(t => {
     const pat = patients.find(p => p.id === t.patient_id);
     const label = pat ? `${pat.first_name} ${pat.surname}` : (t.customer_name || 'Walk-in customer');
-    const flagClass = t.result_flag === 'critical' ? 'vital-flag' : (t.result_flag === 'abnormal' ? 'vital-flag' : '');
+    const flagClass = (t.result_flag === 'critical' || t.result_flag === 'abnormal') ? 'vital-flag' : '';
     return `
       <div class="doc-entry">
         <div>
           <div class="doc-name">${t.test_name}${t.result_value ? ` — ${t.result_value}` : ''}</div>
           <div class="med-meta">${label} · ${new Date(t.result_date).toLocaleDateString()}</div>
         </div>
-        <span class="vitals-chip${flagClass}">${t.result_flag || 'normal'}</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="vitals-chip${flagClass}">${t.result_flag || 'normal'}</span>
+          <button class="btn-ghost btn-small print-result-btn" data-id="${t.id}">🖨</button>
+        </div>
       </div>
     `;
   }).join('');
+
+  els.completedList.querySelectorAll('.print-result-btn').forEach(btn => {
+    btn.addEventListener('click', () => printLabResult(btn.dataset.id));
+  });
+}
+
+async function printLabResult(testId) {
+  const t = completedTests.find(x => x.id === testId);
+  if (!t) return;
+  const pat = patients.find(p => p.id === t.patient_id);
+  const header = await buildClinicHeaderHtml();
+
+  const patientBlock = pat ? `
+    <div class="med-meta">Patient: ${pat.first_name} ${pat.surname} (${pat.upi})</div>
+    <div class="med-meta">Sex: ${pat.sex || '—'} · DOB: ${pat.dob || '—'}</div>
+  ` : `<div class="med-meta">Patient: ${t.customer_name || 'Walk-in customer'}</div>`;
+
+  els.receiptArea.innerHTML = `
+    <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
+      ${header}
+      <div class="med-top"><span class="med-name">Laboratory Test Report</span></div>
+      ${patientBlock}
+      <div class="med-meta">Requested: ${new Date(t.requested_at).toLocaleString()}</div>
+      <div class="med-meta">Reported: ${new Date(t.result_date).toLocaleString()}</div>
+
+      <table style="width:100%; margin-top:12px; font-size:12.5px; border-collapse:collapse;">
+        <tr style="border-bottom:1px solid var(--line); text-align:left;">
+          <th style="padding:4px 0;">Test</th><th>Specimen</th><th>Result</th><th>Reference Range</th><th>Flag</th>
+        </tr>
+        <tr>
+          <td style="padding:4px 0;">${t.test_name}</td>
+          <td>${t.sample_type || '—'}</td>
+          <td>${t.result_value || '—'}</td>
+          <td>${t.reference_range || '—'}</td>
+          <td>${(t.result_flag || 'normal').toUpperCase()}</td>
+        </tr>
+      </table>
+
+      <div class="signature-block">
+        <div class="signature-line"><div class="line">Tested by</div></div>
+        <div class="signature-line"><div class="line">Reviewed by</div></div>
+      </div>
+    </div>
+    <button type="button" class="btn-ghost btn-small no-print" id="print-lab-result-btn" style="margin-top:8px;">🖨 Print result</button>
+  `;
+  document.getElementById('print-lab-result-btn').addEventListener('click', () => window.print());
+  els.receiptArea.scrollIntoView({ behavior: 'smooth' });
 }
 
 // ---------- Sign out ----------
