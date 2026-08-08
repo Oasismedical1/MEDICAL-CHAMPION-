@@ -1,16 +1,23 @@
 // `client` is created by auth-guard.js, which loads before this file.
 
 const els = {
-  connDot: document.getElementById('conn-dot'),
-  connLabel: document.getElementById('conn-label'),
   patientSearch: document.getElementById('lab-patient-search'),
   patientResults: document.getElementById('lab-patient-results'),
   patientIdField: document.getElementById('lab-patient-id'),
   selectedPatientLabel: document.getElementById('lab-selected-patient'),
+  customerType: document.getElementById('lab-customer-type'),
+  patientSelectArea: document.getElementById('lab-patient-select-area'),
+  walkinArea: document.getElementById('lab-walkin-area'),
+  walkinName: document.getElementById('lab-walkin-name'),
   testName: document.getElementById('lab-test-name'),
   sampleType: document.getElementById('lab-sample-type'),
+  amountCharged: document.getElementById('lab-amount-charged'),
+  paymentMethod: document.getElementById('lab-payment-method'),
+  amountReceived: document.getElementById('lab-amount-received'),
+  changeDisplay: document.getElementById('lab-change-display'),
   requestBtn: document.getElementById('lab-request-btn'),
   requestStatus: document.getElementById('lab-request-status'),
+  receiptArea: document.getElementById('lab-receipt-area'),
   pendingList: document.getElementById('lab-pending-list'),
   completedList: document.getElementById('lab-completed-list'),
 };
@@ -20,14 +27,38 @@ let patients = [];
 // ---------- Connection ----------
 async function checkConnection() {
   const { error } = await client.from('lab_tests').select('id').limit(1);
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
   if (error) {
-    els.connDot.className = 'dot offline';
-    els.connLabel.textContent = 'Connection error';
+    dot.className = 'dot offline';
+    label.textContent = 'Connection error';
     return false;
   }
-  els.connDot.className = 'dot online';
-  els.connLabel.textContent = 'Connected';
+  dot.className = 'dot online';
+  label.textContent = 'Connected';
   return true;
+}
+
+// ---------- Customer type toggle ----------
+els.customerType.addEventListener('change', () => {
+  const isWalkin = els.customerType.value === 'walkin';
+  els.patientSelectArea.style.display = isWalkin ? 'none' : 'block';
+  els.walkinArea.style.display = isWalkin ? 'block' : 'none';
+});
+
+// ---------- Payment / change ----------
+els.amountReceived.addEventListener('input', updateChange);
+els.amountCharged.addEventListener('input', updateChange);
+
+function updateChange() {
+  if (!els.amountReceived.value) { els.changeDisplay.textContent = ''; return; }
+  const charged = Number(els.amountCharged.value) || 0;
+  const received = Number(els.amountReceived.value) || 0;
+  const change = received - charged;
+  els.changeDisplay.textContent = change >= 0
+    ? `Change due: UGX ${change.toLocaleString()}`
+    : `Short by: UGX ${Math.abs(change).toLocaleString()}`;
+  els.changeDisplay.className = change >= 0 ? 'form-status ok' : 'form-status err';
 }
 
 // ---------- Patients (for search) ----------
@@ -66,11 +97,13 @@ els.patientSearch.addEventListener('input', () => {
 
 // ---------- Request a test ----------
 els.requestBtn.addEventListener('click', async () => {
-  const patientId = els.patientIdField.value;
+  const isWalkin = els.customerType.value === 'walkin';
+  const patientId = isWalkin ? null : (els.patientIdField.value || null);
+  const customerName = isWalkin ? els.walkinName.value.trim() : null;
   const testName = els.testName.value.trim();
 
-  if (!patientId) {
-    els.requestStatus.textContent = 'Select a patient first.';
+  if (!isWalkin && !patientId) {
+    els.requestStatus.textContent = 'Select a patient, or switch to Walk-in / one-time test.';
     els.requestStatus.className = 'form-status err';
     return;
   }
@@ -83,16 +116,29 @@ els.requestBtn.addEventListener('click', async () => {
   els.requestStatus.textContent = 'Saving…';
   els.requestStatus.className = 'form-status';
 
-  const { error } = await client.from('lab_tests').insert([{
+  const charged = Number(els.amountCharged.value) || 0;
+  const received = Number(els.amountReceived.value) || 0;
+  const change = received - charged;
+
+  const { data: order, error } = await client.from('lab_tests').insert([{
     patient_id: patientId,
+    customer_name: customerName,
     test_name: testName,
     sample_type: els.sampleType.value.trim(),
-  }]);
+    amount_charged: charged,
+    payment_method: els.paymentMethod.value,
+    amount_received: received,
+    change_due: change > 0 ? change : 0,
+  }]).select().single();
 
   if (error) {
     els.requestStatus.textContent = `Couldn't save: ${error.message}`;
     els.requestStatus.className = 'form-status err';
     return;
+  }
+
+  if (charged > 0) {
+    showReceipt(order, isWalkin ? (customerName || 'Walk-in customer') : els.patientSearch.value);
   }
 
   els.requestStatus.textContent = 'Test requested.';
@@ -102,9 +148,27 @@ els.requestBtn.addEventListener('click', async () => {
   els.selectedPatientLabel.textContent = '';
   els.testName.value = '';
   els.sampleType.value = '';
+  els.amountCharged.value = '';
+  els.amountReceived.value = '';
+  els.changeDisplay.textContent = '';
 
   await loadPendingList();
 });
+
+function showReceipt(order, customerLabel) {
+  els.receiptArea.innerHTML = `
+    <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
+      <div class="med-top"><span class="med-name">Receipt</span><span class="med-meta">${new Date(order.requested_at).toLocaleString()}</span></div>
+      <div class="med-meta" style="margin-top:6px;">${customerLabel}</div>
+      <div class="consult-text" style="margin-top:8px;">${order.test_name}${order.sample_type ? ` (${order.sample_type})` : ''}</div>
+      <div class="med-meta" style="margin-top:8px; font-weight:600;">Amount: UGX ${order.amount_charged.toLocaleString()}</div>
+      <div class="med-meta">Paid (${order.payment_method}): UGX ${order.amount_received.toLocaleString()}</div>
+      ${order.change_due > 0 ? `<div class="med-meta">Change given: UGX ${order.change_due.toLocaleString()}</div>` : ''}
+    </div>
+    <button type="button" class="btn-ghost btn-small no-print" id="print-lab-receipt-btn" style="margin-top:8px;">🖨 Print receipt</button>
+  `;
+  document.getElementById('print-lab-receipt-btn').addEventListener('click', () => window.print());
+}
 
 // ---------- Pending worklist ----------
 async function loadPendingList() {
@@ -125,11 +189,12 @@ async function loadPendingList() {
 
   els.pendingList.innerHTML = data.map(t => {
     const pat = patients.find(p => p.id === t.patient_id);
+    const label = pat ? `${pat.first_name} ${pat.surname}` : (t.customer_name || 'Walk-in customer');
     return `
       <div class="patient-row" data-id="${t.id}" style="cursor:pointer;">
         <div>
           <div class="pr-name">${t.test_name}</div>
-          <div class="pr-meta">${pat ? `${pat.first_name} ${pat.surname}` : 'Unknown patient'} · ${t.sample_type || 'sample n/a'} · ${new Date(t.requested_at).toLocaleDateString()}</div>
+          <div class="pr-meta">${label} · ${t.sample_type || 'sample n/a'} · ${new Date(t.requested_at).toLocaleDateString()}</div>
         </div>
         <span>→</span>
       </div>
@@ -211,12 +276,13 @@ async function loadCompletedList() {
 
   els.completedList.innerHTML = data.map(t => {
     const pat = patients.find(p => p.id === t.patient_id);
+    const label = pat ? `${pat.first_name} ${pat.surname}` : (t.customer_name || 'Walk-in customer');
     const flagClass = t.result_flag === 'critical' ? 'vital-flag' : (t.result_flag === 'abnormal' ? 'vital-flag' : '');
     return `
       <div class="doc-entry">
         <div>
           <div class="doc-name">${t.test_name}${t.result_value ? ` — ${t.result_value}` : ''}</div>
-          <div class="med-meta">${pat ? `${pat.first_name} ${pat.surname}` : 'Unknown patient'} · ${new Date(t.result_date).toLocaleDateString()}</div>
+          <div class="med-meta">${label} · ${new Date(t.result_date).toLocaleDateString()}</div>
         </div>
         <span class="vitals-chip${flagClass}">${t.result_flag || 'normal'}</span>
       </div>
