@@ -249,6 +249,16 @@ h2{font-size:17px;color:var(--primary-dark);}
 .search-result:last-child{border-bottom:none;}
 .search-result:hover{background:#F7FBFA;}
 
+@media print {
+  body * { visibility: hidden; }
+  .receipt-print-area, .receipt-print-area * { visibility: visible; }
+  .receipt-print-area {
+    position: absolute; top: 0; left: 0; width: 100%;
+    border: none !important; padding: 0;
+  }
+  .no-print { display: none !important; }
+}
+
 .stat-cards{display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:24px;}
 @media (max-width:960px){ .stat-cards{grid-template-columns:1fr 1fr;} }
 .stat-card{
