@@ -54,6 +54,22 @@
     </header>
 
     <div class="workspace">
+      <section class="panel form-panel">
+        <div class="panel-head"><h2>Clinic settings</h2></div>
+        <p class="form-status">This name, address, phone, and logo appear on printed receipts and results.</p>
+        <div class="edit-field"><label>Clinic / hospital name</label><input id="clinic-name"></div>
+        <div class="grid-2">
+          <div class="edit-field"><label>Address</label><input id="clinic-address"></div>
+          <div class="edit-field"><label>Phone</label><input id="clinic-phone"></div>
+        </div>
+        <div class="edit-field"><label>Logo</label><input type="file" id="clinic-logo-input" accept="image/*"></div>
+        <div id="clinic-logo-preview" style="margin-top:8px;"></div>
+        <div class="form-actions">
+          <button type="button" class="btn-primary" id="save-clinic-btn">Save clinic settings</button>
+        </div>
+        <p class="form-status" id="clinic-save-status"></p>
+      </section>
+
       <section class="panel list-panel" style="grid-column:1 / -1;">
         <div class="panel-head"><h2>Staff accounts</h2></div>
         <p class="form-status">Roles: Admin, Clinician, Nurse, Pharmacist, Lab Tech, Radiographer, Cashier, Receptionist, HR Officer. Admin and Cashier can see Billing; Admin and HR Officer can see HR. Everyone else sees the clinical modules.</p>
@@ -66,6 +82,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="auth-guard.js"></script>
+<script src="clinic-info.js"></script>
 <script src="admin.js"></script>
 </body>
 </html>
