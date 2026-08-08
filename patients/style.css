@@ -259,6 +259,14 @@ h2{font-size:17px;color:var(--primary-dark);}
   .no-print { display: none !important; }
 }
 
+.receipt-header{text-align:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--line);}
+.receipt-logo{max-height:56px; max-width:160px; margin-bottom:6px;}
+.receipt-clinic-name{font-family:'Fraunces', serif; font-weight:600; font-size:16px; color:var(--primary-dark);}
+.receipt-clinic-line{font-size:11.5px; color:var(--ink-soft);}
+.signature-block{margin-top:28px; display:flex; justify-content:space-between; gap:20px;}
+.signature-line{flex:1; text-align:center;}
+.signature-line .line{border-top:1px solid var(--ink); margin-top:32px; padding-top:4px; font-size:11px; color:var(--ink-soft);}
+
 .stat-cards{display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; margin-bottom:24px;}
 @media (max-width:960px){ .stat-cards{grid-template-columns:1fr 1fr;} }
 .stat-card{
