@@ -63,6 +63,55 @@ async function loadAccounts() {
   });
 }
 
+// ---------- Clinic settings ----------
+async function loadClinicSettings() {
+  const settings = await fetchClinicSettings();
+  document.getElementById('clinic-name').value = settings.clinic_name || '';
+  document.getElementById('clinic-address').value = settings.address || '';
+  document.getElementById('clinic-phone').value = settings.phone || '';
+
+  const preview = document.getElementById('clinic-logo-preview');
+  const url = clinicLogoUrl(settings.logo_path);
+  preview.innerHTML = url ? `<img src="${url}" alt="Current logo" style="max-height:60px;">` : '';
+}
+
+document.getElementById('save-clinic-btn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('clinic-save-status');
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'form-status';
+
+  let logoPath = null;
+  const file = document.getElementById('clinic-logo-input').files[0];
+  if (file) {
+    logoPath = `logo-${Date.now()}.${file.name.split('.').pop()}`;
+    const { error: uploadErr } = await client.storage.from('clinic-assets').upload(logoPath, file, { upsert: true });
+    if (uploadErr) {
+      statusEl.textContent = `Couldn't upload logo: ${uploadErr.message}`;
+      statusEl.className = 'form-status err';
+      return;
+    }
+  }
+
+  const update = {
+    clinic_name: document.getElementById('clinic-name').value.trim(),
+    address: document.getElementById('clinic-address').value.trim(),
+    phone: document.getElementById('clinic-phone').value.trim(),
+  };
+  if (logoPath) update.logo_path = logoPath;
+
+  const { error } = await client.from('clinic_settings').update(update).eq('id', 1);
+
+  if (error) {
+    statusEl.textContent = `Couldn't save: ${error.message}`;
+    statusEl.className = 'form-status err';
+    return;
+  }
+
+  statusEl.textContent = 'Saved.';
+  statusEl.className = 'form-status ok';
+  await loadClinicSettings();
+});
+
 // ---------- Sign out ----------
 document.getElementById('signout-btn').addEventListener('click', async () => {
   await client.auth.signOut();
@@ -77,4 +126,5 @@ document.getElementById('signout-btn').addEventListener('click', async () => {
 
   await checkConnection();
   await loadAccounts();
+  await loadClinicSettings();
 })();
