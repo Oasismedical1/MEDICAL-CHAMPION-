@@ -226,7 +226,29 @@ async function showOrderReceipt(order, tests, customerLabel) {
   document.getElementById('print-lab-receipt-btn').addEventListener('click', () => window.print());
 }
 
-// ---------- Pending worklist ----------
+// ---------- Pending worklist (grouped by order) ----------
+function groupTests(tests) {
+  const groups = {};
+  tests.forEach(t => {
+    const key = t.order_id || `single-${t.id}`;
+    if (!groups[key]) {
+      groups[key] = {
+        key,
+        orderId: t.order_id,
+        patientId: t.patient_id,
+        customerName: t.customer_name,
+        earliestDate: t.requested_at,
+        tests: [],
+      };
+    }
+    groups[key].tests.push(t);
+    if (t.requested_at < groups[key].earliestDate) groups[key].earliestDate = t.requested_at;
+  });
+  return Object.values(groups).sort((a, b) => new Date(a.earliestDate) - new Date(b.earliestDate));
+}
+
+let pendingGroups = [];
+
 async function loadPendingList() {
   const { data, error } = await client
     .from('lab_tests')
@@ -243,14 +265,17 @@ async function loadPendingList() {
     return;
   }
 
-  els.pendingList.innerHTML = data.map(t => {
-    const pat = patients.find(p => p.id === t.patient_id);
-    const label = pat ? `${pat.first_name} ${pat.surname}` : (t.customer_name || 'Walk-in customer');
+  pendingGroups = groupTests(data);
+
+  els.pendingList.innerHTML = pendingGroups.map(g => {
+    const pat = patients.find(p => p.id === g.patientId);
+    const label = pat ? `${pat.first_name} ${pat.surname}` : (g.customerName || 'Walk-in customer');
+    const testNames = g.tests.map(t => t.test_name).join(', ');
     return `
-      <div class="patient-row" data-id="${t.id}" style="cursor:pointer;">
+      <div class="patient-row" data-key="${g.key}" style="cursor:pointer;">
         <div>
-          <div class="pr-name">${t.test_name}</div>
-          <div class="pr-meta">${label} · ${t.sample_type || 'sample n/a'} · ${new Date(t.requested_at).toLocaleDateString()}</div>
+          <div class="pr-name">${label}</div>
+          <div class="pr-meta">${g.tests.length} test${g.tests.length > 1 ? 's' : ''}: ${testNames} · ${new Date(g.earliestDate).toLocaleDateString()}</div>
         </div>
         <span>→</span>
       </div>
@@ -258,63 +283,78 @@ async function loadPendingList() {
   }).join('');
 
   els.pendingList.querySelectorAll('.patient-row').forEach(row => {
-    row.addEventListener('click', () => renderResultForm(row.dataset.id));
+    row.addEventListener('click', () => renderResultForm(row.dataset.key));
   });
 }
 
-function renderResultForm(testId) {
+function renderResultForm(groupKey) {
+  const g = pendingGroups.find(x => x.key === groupKey);
+  if (!g) return;
+  const pat = patients.find(p => p.id === g.patientId);
+  const label = pat ? `${pat.first_name} ${pat.surname}` : (g.customerName || 'Walk-in customer');
+
   const container = els.pendingList;
   container.innerHTML = `
     <div class="vitals-form">
-      <div class="edit-field"><label>Result</label><input id="res-value" placeholder="e.g. Positive, 12.4 g/dL"></div>
-      <div class="grid-2">
-        <div class="edit-field"><label>Unit</label><input id="res-unit" placeholder="e.g. g/dL, ×10⁹/L"></div>
-        <div class="edit-field"><label>Reference range</label><input id="res-range" placeholder="e.g. 12-16 g/dL"></div>
-        <div class="edit-field"><label>Flag</label>
-          <select id="res-flag">
-            <option value="normal">Normal</option>
-            <option value="abnormal">Abnormal</option>
-            <option value="critical">Critical</option>
-          </select>
+      <h4 style="margin:0 0 4px;">${label}</h4>
+      ${g.tests.map((t, i) => `
+        <div class="med-entry" style="margin-top:10px;">
+          <div class="med-name">${t.test_name}${t.sample_type ? ` (${t.sample_type})` : ''}</div>
+          <div class="edit-field" style="margin-top:8px;"><label>Result</label><input id="res-value-${i}" placeholder="e.g. Positive, 12.4 g/dL"></div>
+          <div class="grid-2">
+            <div class="edit-field"><label>Unit</label><input id="res-unit-${i}" placeholder="e.g. g/dL"></div>
+            <div class="edit-field"><label>Reference range</label><input id="res-range-${i}" placeholder="e.g. 12-16 g/dL"></div>
+            <div class="edit-field"><label>Flag</label>
+              <select id="res-flag-${i}">
+                <option value="normal">Normal</option>
+                <option value="abnormal">Abnormal</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
         </div>
-      </div>
+      `).join('')}
       <div class="form-actions">
         <button type="button" class="btn-ghost" id="cancel-result-btn">Cancel</button>
-        <button type="button" class="btn-primary" id="save-result-btn">Save result</button>
+        <button type="button" class="btn-primary" id="save-result-btn">Save all results</button>
       </div>
       <p class="form-status" id="result-status"></p>
     </div>
   `;
 
   document.getElementById('cancel-result-btn').addEventListener('click', loadPendingList);
-  document.getElementById('save-result-btn').addEventListener('click', () => saveResult(testId));
+  document.getElementById('save-result-btn').addEventListener('click', () => saveResults(g));
 }
 
-async function saveResult(testId) {
+async function saveResults(g) {
   const statusEl = document.getElementById('result-status');
   statusEl.textContent = 'Saving…';
   statusEl.className = 'form-status';
 
-  const { error } = await client.from('lab_tests').update({
-    result_value: document.getElementById('res-value').value.trim(),
-    reference_range: document.getElementById('res-range').value.trim(),
-    result_flag: document.getElementById('res-flag').value,
-    status: 'completed',
-    result_date: new Date().toISOString(),
-  }).eq('id', testId);
+  const now = new Date().toISOString();
 
-  if (error) {
-    statusEl.textContent = `Couldn't save: ${error.message}`;
-    statusEl.className = 'form-status err';
-    return;
+  for (let i = 0; i < g.tests.length; i++) {
+    const { error } = await client.from('lab_tests').update({
+      result_value: document.getElementById(`res-value-${i}`).value.trim(),
+      reference_range: document.getElementById(`res-range-${i}`).value.trim(),
+      result_flag: document.getElementById(`res-flag-${i}`).value,
+      status: 'completed',
+      result_date: now,
+    }).eq('id', g.tests[i].id);
+
+    if (error) {
+      statusEl.textContent = `Couldn't save one of the results: ${error.message}`;
+      statusEl.className = 'form-status err';
+      return;
+    }
   }
 
   await loadPendingList();
   await loadCompletedList();
 }
 
-// ---------- Recently completed ----------
-let completedTests = [];
+// ---------- Recently completed (grouped by order) ----------
+let completedGroups = [];
 
 async function loadCompletedList() {
   const { data, error } = await client
@@ -322,72 +362,79 @@ async function loadCompletedList() {
     .select('*')
     .eq('status', 'completed')
     .order('result_date', { ascending: false })
-    .limit(15);
+    .limit(40);
 
   if (error) {
     els.completedList.innerHTML = `<p class="empty-state">Couldn't load results.</p>`;
     return;
   }
-  completedTests = data || [];
-
-  if (!completedTests.length) {
+  if (!data.length) {
     els.completedList.innerHTML = `<p class="empty-state">No completed tests yet.</p>`;
     return;
   }
 
-  els.completedList.innerHTML = completedTests.map(t => {
-    const pat = patients.find(p => p.id === t.patient_id);
-    const label = pat ? `${pat.first_name} ${pat.surname}` : (t.customer_name || 'Walk-in customer');
-    const flagClass = (t.result_flag === 'critical' || t.result_flag === 'abnormal') ? 'vital-flag' : '';
+  completedGroups = groupTests(data).sort((a, b) => new Date(b.earliestDate) - new Date(a.earliestDate)).slice(0, 15);
+
+  els.completedList.innerHTML = completedGroups.map(g => {
+    const pat = patients.find(p => p.id === g.patientId);
+    const label = pat ? `${pat.first_name} ${pat.surname}` : (g.customerName || 'Walk-in customer');
+    const anyFlagged = g.tests.some(t => t.result_flag === 'critical' || t.result_flag === 'abnormal');
+    const testNames = g.tests.map(t => t.test_name).join(', ');
     return `
       <div class="doc-entry">
         <div>
-          <div class="doc-name">${t.test_name}${t.result_value ? ` — ${t.result_value}` : ''}</div>
-          <div class="med-meta">${label} · ${new Date(t.result_date).toLocaleDateString()}</div>
+          <div class="doc-name">${label}</div>
+          <div class="med-meta">${testNames}</div>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
-          <span class="vitals-chip${flagClass}">${t.result_flag || 'normal'}</span>
-          <button class="btn-ghost btn-small print-result-btn" data-id="${t.id}">🖨</button>
+          ${anyFlagged ? `<span class="vitals-chip vital-flag">flagged</span>` : ''}
+          <button class="btn-ghost btn-small print-result-btn" data-key="${g.key}">🖨</button>
         </div>
       </div>
     `;
   }).join('');
 
   els.completedList.querySelectorAll('.print-result-btn').forEach(btn => {
-    btn.addEventListener('click', () => printLabResult(btn.dataset.id));
+    btn.addEventListener('click', () => printLabResult(btn.dataset.key));
   });
 }
 
-async function printLabResult(testId) {
-  const t = completedTests.find(x => x.id === testId);
-  if (!t) return;
-  const pat = patients.find(p => p.id === t.patient_id);
+async function printLabResult(groupKey) {
+  const g = completedGroups.find(x => x.key === groupKey);
+  if (!g) return;
+  const pat = patients.find(p => p.id === g.patientId);
   const header = await buildClinicHeaderHtml();
+  const latestResultDate = g.tests.reduce((latest, t) =>
+    (!latest || new Date(t.result_date) > new Date(latest)) ? t.result_date : latest, null);
 
   const patientBlock = pat ? `
     <div class="med-meta">Patient: ${pat.first_name} ${pat.surname} (${pat.upi})</div>
     <div class="med-meta">Sex: ${pat.sex || '—'} · DOB: ${pat.dob || '—'}</div>
-  ` : `<div class="med-meta">Patient: ${t.customer_name || 'Walk-in customer'}</div>`;
+  ` : `<div class="med-meta">Patient: ${g.customerName || 'Walk-in customer'}</div>`;
+
+  const rows = g.tests.map(t => `
+    <tr>
+      <td style="padding:4px 0;">${t.test_name}</td>
+      <td>${t.sample_type || '—'}</td>
+      <td>${t.result_value || '—'}</td>
+      <td>${t.reference_range || '—'}</td>
+      <td>${(t.result_flag || 'normal').toUpperCase()}</td>
+    </tr>
+  `).join('');
 
   els.receiptArea.innerHTML = `
     <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
       ${header}
       <div class="med-top"><span class="med-name">Laboratory Test Report</span></div>
       ${patientBlock}
-      <div class="med-meta">Requested: ${new Date(t.requested_at).toLocaleString()}</div>
-      <div class="med-meta">Reported: ${new Date(t.result_date).toLocaleString()}</div>
+      <div class="med-meta">Requested: ${new Date(g.earliestDate).toLocaleString()}</div>
+      <div class="med-meta">Reported: ${latestResultDate ? new Date(latestResultDate).toLocaleString() : '—'}</div>
 
       <table style="width:100%; margin-top:12px; font-size:12.5px; border-collapse:collapse;">
         <tr style="border-bottom:1px solid var(--line); text-align:left;">
           <th style="padding:4px 0;">Test</th><th>Specimen</th><th>Result</th><th>Reference Range</th><th>Flag</th>
         </tr>
-        <tr>
-          <td style="padding:4px 0;">${t.test_name}</td>
-          <td>${t.sample_type || '—'}</td>
-          <td>${t.result_value || '—'}</td>
-          <td>${t.reference_range || '—'}</td>
-          <td>${(t.result_flag || 'normal').toUpperCase()}</td>
-        </tr>
+        ${rows}
       </table>
 
       <div class="signature-block">
