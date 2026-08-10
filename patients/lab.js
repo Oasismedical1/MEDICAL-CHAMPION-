@@ -11,6 +11,8 @@ const els = {
   walkinName: document.getElementById('lab-walkin-name'),
   testName: document.getElementById('lab-test-name'),
   sampleType: document.getElementById('lab-sample-type'),
+  testPrice: document.getElementById('lab-test-price'),
+  catalogDatalist: document.getElementById('test-catalogue-list'),
   addTestBtn: document.getElementById('add-test-to-cart-btn'),
   cartItems: document.getElementById('lab-cart-items'),
   amountCharged: document.getElementById('lab-amount-charged'),
@@ -22,10 +24,14 @@ const els = {
   receiptArea: document.getElementById('lab-receipt-area'),
   pendingList: document.getElementById('lab-pending-list'),
   completedList: document.getElementById('lab-completed-list'),
+  addCatalogBtn: document.getElementById('add-catalog-test-btn'),
+  catalogAddForm: document.getElementById('catalog-add-form'),
+  catalogList: document.getElementById('catalog-list'),
 };
 
 let patients = [];
-let cart = []; // { testName, sampleType }
+let cart = []; // { testName, sampleType, price }
+let catalog = [];
 
 // ---------- Connection ----------
 async function checkConnection() {
@@ -91,9 +97,11 @@ els.addTestBtn.addEventListener('click', () => {
     els.requestStatus.className = 'form-status err';
     return;
   }
-  cart.push({ testName: name, sampleType: els.sampleType.value.trim() });
+  const price = Number(els.testPrice.value) || 0;
+  cart.push({ testName: name, sampleType: els.sampleType.value.trim(), price });
   els.testName.value = '';
   els.sampleType.value = '';
+  els.testPrice.value = '';
   els.requestStatus.textContent = '';
   renderCart();
 });
@@ -101,13 +109,14 @@ els.addTestBtn.addEventListener('click', () => {
 function renderCart() {
   if (!cart.length) {
     els.cartItems.innerHTML = `<p class="empty-state small">No tests added yet.</p>`;
+    updateAmountChargedFromCart();
     return;
   }
   els.cartItems.innerHTML = cart.map((t, i) => `
     <div class="doc-entry">
       <div>
         <div class="doc-name">${t.testName}</div>
-        <div class="med-meta">${t.sampleType || 'sample n/a'}</div>
+        <div class="med-meta">${t.sampleType || 'sample n/a'}${t.price ? ` · UGX ${t.price.toLocaleString()}` : ''}</div>
       </div>
       <button class="btn-ghost btn-small remove-cart-test" data-index="${i}">Remove</button>
     </div>
@@ -119,7 +128,100 @@ function renderCart() {
       renderCart();
     });
   });
+
+  updateAmountChargedFromCart();
 }
+
+function updateAmountChargedFromCart() {
+  const total = cart.reduce((sum, t) => sum + (t.price || 0), 0);
+  els.amountCharged.value = total || '';
+  updateChange();
+}
+
+// ---------- Test catalog (price list) ----------
+async function loadCatalog() {
+  const { data, error } = await client.from('lab_test_catalog').select('*').order('test_name');
+  if (error) return;
+  catalog = data || [];
+
+  els.catalogDatalist.innerHTML = catalog.map(c => `<option value="${c.test_name}"></option>`).join('');
+  renderCatalogList();
+}
+
+function renderCatalogList() {
+  if (!catalog.length) {
+    els.catalogList.innerHTML = `<p class="empty-state">No tests priced yet.</p>`;
+    return;
+  }
+  els.catalogList.innerHTML = catalog.map(c => `
+    <div class="doc-entry">
+      <div>
+        <div class="doc-name">${c.test_name}</div>
+        <div class="med-meta">${c.sample_type || 'sample n/a'}</div>
+      </div>
+      <input type="number" class="catalog-price-input" data-id="${c.id}" value="${c.default_price}" style="width:100px;">
+      <button class="btn-ghost btn-small save-catalog-price-btn" data-id="${c.id}">Save</button>
+    </div>
+  `).join('');
+
+  els.catalogList.querySelectorAll('.save-catalog-price-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const input = els.catalogList.querySelector(`.catalog-price-input[data-id="${btn.dataset.id}"]`);
+      await client.from('lab_test_catalog').update({ default_price: Number(input.value) || 0 }).eq('id', btn.dataset.id);
+      btn.textContent = 'Saved ✓';
+      setTimeout(() => btn.textContent = 'Save', 1200);
+      await loadCatalog();
+    });
+  });
+}
+
+els.addCatalogBtn.addEventListener('click', () => {
+  els.catalogAddForm.innerHTML = `
+    <div class="vitals-form">
+      <div class="grid-2">
+        <div class="edit-field"><label>Test name</label><input id="new-catalog-name"></div>
+        <div class="edit-field"><label>Sample type</label><input id="new-catalog-sample" placeholder="e.g. Blood, Urine"></div>
+        <div class="edit-field"><label>Price (UGX)</label><input type="number" id="new-catalog-price" min="0"></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancel-catalog-add">Cancel</button>
+        <button type="button" class="btn-primary" id="save-catalog-add">Save</button>
+      </div>
+      <p class="form-status" id="catalog-add-status"></p>
+    </div>
+  `;
+  document.getElementById('cancel-catalog-add').addEventListener('click', () => els.catalogAddForm.innerHTML = '');
+  document.getElementById('save-catalog-add').addEventListener('click', async () => {
+    const statusEl = document.getElementById('catalog-add-status');
+    const name = document.getElementById('new-catalog-name').value.trim();
+    if (!name) {
+      statusEl.textContent = 'Test name is required.';
+      statusEl.className = 'form-status err';
+      return;
+    }
+    const { error } = await client.from('lab_test_catalog').insert([{
+      test_name: name,
+      sample_type: document.getElementById('new-catalog-sample').value.trim(),
+      default_price: Number(document.getElementById('new-catalog-price').value) || 0,
+    }]);
+    if (error) {
+      statusEl.textContent = `Couldn't save: ${error.message}`;
+      statusEl.className = 'form-status err';
+      return;
+    }
+    els.catalogAddForm.innerHTML = '';
+    await loadCatalog();
+  });
+});
+
+// Auto-fill sample type + price when a catalog test name is picked
+els.testName.addEventListener('input', () => {
+  const match = catalog.find(c => c.test_name.toLowerCase() === els.testName.value.trim().toLowerCase());
+  if (match) {
+    els.sampleType.value = match.sample_type || '';
+    els.testPrice.value = match.default_price || 0;
+  }
+});
 
 // ---------- Payment / change ----------
 els.amountReceived.addEventListener('input', updateChange);
@@ -462,6 +564,7 @@ document.getElementById('signout-btn').addEventListener('click', async () => {
 
   await checkConnection();
   await loadPatients();
+  await loadCatalog();
   await loadPendingList();
   await loadCompletedList();
 })();
