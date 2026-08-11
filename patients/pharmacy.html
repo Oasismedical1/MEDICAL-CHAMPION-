@@ -86,6 +86,7 @@
             <select id="dispense-medicine"></select>
           </div>
           <div class="edit-field"><label>Quantity</label><input type="number" id="dispense-qty" min="1" value="1"></div>
+          <div class="edit-field field-wide"><label>Directions (for medicine label)</label><input id="dispense-directions" placeholder="e.g. Take 1 tablet 3 times daily for 5 days"></div>
         </div>
         <div class="form-actions" style="justify-content:flex-start;">
           <button type="button" class="btn-ghost btn-small" id="add-to-cart-btn">+ Add to sale</button>
@@ -115,6 +116,7 @@
         </div>
         <p class="form-status" id="dispense-status"></p>
         <div id="receipt-area"></div>
+        <div id="post-sale-actions"></div>
 
         <div class="panel-head" style="margin-top:26px;">
           <h2>Recent sales</h2>
