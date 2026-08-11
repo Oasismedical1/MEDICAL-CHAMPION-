@@ -111,27 +111,69 @@ async function loadPendingList() {
     els.pendingList.innerHTML = `<p class="empty-state">Couldn't load worklist.</p>`;
     return;
   }
-  if (!data.length) {
+  pendingExams = data || [];
+
+  if (!pendingExams.length) {
     els.pendingList.innerHTML = `<p class="empty-state">No pending exams.</p>`;
     return;
   }
 
-  els.pendingList.innerHTML = data.map(o => {
+  els.pendingList.innerHTML = pendingExams.map(o => {
     const pat = patients.find(p => p.id === o.patient_id);
     return `
-      <div class="patient-row" data-id="${o.id}" style="cursor:pointer;">
-        <div>
+      <div class="patient-row" style="align-items:flex-start;">
+        <div style="cursor:pointer; flex:1;" class="open-report-form" data-id="${o.id}">
           <div class="pr-name">${o.exam_type}</div>
           <div class="pr-meta">${pat ? `${pat.first_name} ${pat.surname}` : 'Unknown patient'} · ${o.clinical_indication || 'no indication given'} · ${new Date(o.requested_at).toLocaleDateString()}</div>
         </div>
-        <span>→</span>
+        <button class="btn-ghost btn-small print-request-btn" data-id="${o.id}">🖨 Request</button>
       </div>
     `;
   }).join('');
 
-  els.pendingList.querySelectorAll('.patient-row').forEach(row => {
+  els.pendingList.querySelectorAll('.open-report-form').forEach(row => {
     row.addEventListener('click', () => renderReportForm(row.dataset.id));
   });
+  els.pendingList.querySelectorAll('.print-request-btn').forEach(btn => {
+    btn.addEventListener('click', () => printRadiologyRequest(btn.dataset.id));
+  });
+}
+
+async function printRadiologyRequest(orderId) {
+  const o = pendingExams.find(x => x.id === orderId);
+  if (!o) return;
+  const pat = patients.find(p => p.id === o.patient_id);
+  const header = await buildClinicHeaderHtml();
+
+  const patientBlock = pat ? `
+    <div class="med-meta">Patient: ${pat.first_name} ${pat.surname} (${pat.upi})</div>
+    <div class="med-meta">Sex: ${pat.sex || '—'} · DOB: ${pat.dob || '—'}</div>
+  ` : `<div class="med-meta">Patient: Unknown / not on file</div>`;
+
+  const receiptArea = document.getElementById('rad-receipt-area') || (() => {
+    const div = document.createElement('div');
+    div.id = 'rad-receipt-area';
+    els.pendingList.parentElement.appendChild(div);
+    return div;
+  })();
+
+  receiptArea.innerHTML = `
+    <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
+      ${header}
+      <div class="med-top"><span class="med-name">Radiology Request Form</span></div>
+      ${patientBlock}
+      <div class="med-meta">Exam requested: ${o.exam_type}</div>
+      <div class="med-meta">Clinical indication: ${o.clinical_indication || '—'}</div>
+      <div class="med-meta">Requested: ${new Date(o.requested_at).toLocaleString()}</div>
+      <div class="med-meta">Requested by: ${window.currentUser ? window.currentUser.email : ''}</div>
+      <div class="signature-block">
+        <div class="signature-line"><div class="line">Requesting Clinician</div></div>
+      </div>
+    </div>
+    <button type="button" class="btn-ghost btn-small no-print" id="print-rad-request-btn" style="margin-top:8px;">🖨 Print</button>
+  `;
+  document.getElementById('print-rad-request-btn').addEventListener('click', () => window.print());
+  receiptArea.scrollIntoView({ behavior: 'smooth' });
 }
 
 function renderReportForm(orderId) {
