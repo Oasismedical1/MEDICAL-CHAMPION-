@@ -4,6 +4,7 @@ const els = {
   addItemBtn: document.getElementById('add-item-btn'),
   addItemForm: document.getElementById('add-item-form'),
   inventoryList: document.getElementById('inventory-list'),
+  inventorySearch: document.getElementById('inventory-search'),
   issueItem: document.getElementById('issue-item'),
   issueQty: document.getElementById('issue-qty'),
   issueDept: document.getElementById('issue-dept'),
@@ -33,36 +34,106 @@ async function checkConnection() {
 
 // ---------- Items ----------
 async function loadItems() {
-  const { data, error } = await client.from('inventory_items').select('*').order('name');
+  const { data, error } = await client.from('inventory_items').select('*').eq('status', 'active').order('name');
   if (error) {
     els.inventoryList.innerHTML = `<p class="empty-state">Couldn't load inventory.</p>`;
     return;
   }
   items = data || [];
-  renderItemList();
+  renderItemList(items);
   renderIssueDropdown();
 }
 
-function renderItemList() {
-  if (!items.length) {
-    els.inventoryList.innerHTML = `<p class="empty-state">No items added yet.</p>`;
+els.inventorySearch.addEventListener('input', () => {
+  const q = els.inventorySearch.value.trim().toLowerCase();
+  if (!q) return renderItemList(items);
+  renderItemList(items.filter(i =>
+    i.name.toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q)
+  ));
+});
+
+function renderItemList(list) {
+  if (!list.length) {
+    els.inventoryList.innerHTML = `<p class="empty-state">No items found.</p>`;
     return;
   }
   const today = new Date().toISOString().slice(0, 10);
 
-  els.inventoryList.innerHTML = items.map(i => {
+  els.inventoryList.innerHTML = list.map(i => {
     const low = i.quantity <= i.reorder_level;
     const expiringSoon = i.expiry_date && i.expiry_date < new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
     const expired = i.expiry_date && i.expiry_date < today;
     return `
-      <div class="patient-row" style="cursor:default;">
+      <div class="patient-row" style="cursor:default; align-items:flex-start;">
         <div>
           <div class="pr-name">${i.name}</div>
           <div class="pr-meta">${i.category || 'Uncategorized'} · stock: ${i.quantity} ${i.unit || ''}${low ? ' ⚠ low' : ''}${i.expiry_date ? ` · exp: ${i.expiry_date}${expired ? ' (EXPIRED)' : (expiringSoon ? ' (soon)' : '')}` : ''}</div>
         </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-ghost btn-small edit-item-btn" data-id="${i.id}">Edit</button>
+          <button class="btn-ghost btn-small archive-item-btn" data-id="${i.id}">Archive</button>
+        </div>
       </div>
     `;
   }).join('');
+
+  els.inventoryList.querySelectorAll('.edit-item-btn').forEach(btn => {
+    btn.addEventListener('click', () => renderEditItemForm(btn.dataset.id));
+  });
+  els.inventoryList.querySelectorAll('.archive-item-btn').forEach(btn => {
+    btn.addEventListener('click', () => archiveItem(btn.dataset.id));
+  });
+}
+
+function renderEditItemForm(itemId) {
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
+
+  els.inventoryList.innerHTML = `
+    <div class="vitals-form">
+      <h4 style="margin:0 0 8px;">${item.name}</h4>
+      <div class="grid-2">
+        <div class="edit-field"><label>Quantity</label><input type="number" id="edit-item-qty" value="${item.quantity}"></div>
+        <div class="edit-field"><label>Reorder level</label><input type="number" id="edit-item-reorder" value="${item.reorder_level}"></div>
+        <div class="edit-field"><label>Unit cost (UGX)</label><input type="number" id="edit-item-cost" value="${item.unit_cost || 0}"></div>
+        <div class="edit-field"><label>Expiry date</label><input type="date" id="edit-item-expiry" value="${item.expiry_date || ''}"></div>
+        <div class="edit-field"><label>Supplier</label><input id="edit-item-supplier" value="${item.supplier || ''}"></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" id="cancel-item-edit">Cancel</button>
+        <button type="button" class="btn-primary" id="save-item-edit">Save changes</button>
+      </div>
+      <p class="form-status" id="item-edit-status"></p>
+    </div>
+  `;
+
+  document.getElementById('cancel-item-edit').addEventListener('click', () => renderItemList(items));
+  document.getElementById('save-item-edit').addEventListener('click', async () => {
+    const statusEl = document.getElementById('item-edit-status');
+    statusEl.textContent = 'Saving…';
+    statusEl.className = 'form-status';
+
+    const { error } = await client.from('inventory_items').update({
+      quantity: Number(document.getElementById('edit-item-qty').value) || 0,
+      reorder_level: Number(document.getElementById('edit-item-reorder').value) || 0,
+      unit_cost: Number(document.getElementById('edit-item-cost').value) || 0,
+      expiry_date: document.getElementById('edit-item-expiry').value || null,
+      supplier: document.getElementById('edit-item-supplier').value.trim(),
+    }).eq('id', itemId);
+
+    if (error) {
+      statusEl.textContent = `Couldn't save: ${error.message}`;
+      statusEl.className = 'form-status err';
+      return;
+    }
+    await loadItems();
+  });
+}
+
+async function archiveItem(itemId) {
+  if (!confirm('Archive this item? It will be hidden from the active list but history is kept.')) return;
+  await client.from('inventory_items').update({ status: 'inactive' }).eq('id', itemId);
+  await loadItems();
 }
 
 function renderIssueDropdown() {
