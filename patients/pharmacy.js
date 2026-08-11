@@ -205,10 +205,12 @@ els.addToCartBtn.addEventListener('click', () => {
     name: `${med.name}${med.strength ? ' ' + med.strength : ''}`,
     qty,
     unitPrice: med.unit_price || 0,
+    directions: document.getElementById('dispense-directions').value.trim(),
   });
 
   els.dispenseStatus.textContent = '';
   els.dispenseQty.value = 1;
+  document.getElementById('dispense-directions').value = '';
   renderCart();
 });
 
@@ -314,6 +316,7 @@ els.dispenseBtn.addEventListener('click', async () => {
       unit_price: item.unitPrice,
       total_price: item.qty * item.unitPrice,
       sale_id: sale.id,
+      directions: item.directions || null,
     }]);
 
     const med = medicines.find(m => m.id === item.medicineId);
@@ -322,7 +325,10 @@ els.dispenseBtn.addEventListener('click', async () => {
     }
   }
 
-  showReceipt(sale, cart, isWalkin ? (customerName || 'Walk-in customer') : els.patientSearch.value);
+  const soldItems = [...cart];
+  const customerLabel = isWalkin ? (customerName || 'Walk-in customer') : els.patientSearch.value;
+  await showReceipt(sale, soldItems, customerLabel);
+  renderPostSaleActions(sale, soldItems, customerLabel);
 
   els.dispenseStatus.textContent = 'Sale completed.';
   els.dispenseStatus.className = 'form-status ok';
@@ -340,6 +346,79 @@ els.dispenseBtn.addEventListener('click', async () => {
   await loadMedicines();
   await loadDispenseLog();
 });
+
+function renderPostSaleActions(sale, items, customerLabel) {
+  const area = document.getElementById('post-sale-actions');
+  area.innerHTML = `
+    <div class="form-actions no-print" style="justify-content:flex-start; gap:8px;">
+      <button type="button" class="btn-ghost btn-small" id="print-labels-btn">🏷 Print medicine labels</button>
+      <button type="button" class="btn-ghost btn-small" id="print-dispensing-btn">📋 Print dispensing record</button>
+    </div>
+  `;
+  document.getElementById('print-labels-btn').addEventListener('click', () => showLabels(sale, items, customerLabel));
+  document.getElementById('print-dispensing-btn').addEventListener('click', () => showDispensingRecord(sale, items, customerLabel));
+}
+
+async function showLabels(sale, items, customerLabel) {
+  const header = await buildClinicHeaderHtml();
+  els.receiptArea.innerHTML = `
+    <div class="receipt-print-area">
+      ${items.map(item => `
+        <div class="med-entry" style="margin-top:10px; page-break-after:always;">
+          ${header}
+          <div class="med-meta">Patient: ${customerLabel}</div>
+          <div class="med-name" style="margin-top:6px;">${item.name}</div>
+          <div class="med-meta">Quantity: ${item.qty}</div>
+          ${item.directions ? `<div class="consult-text" style="margin-top:6px;">Directions: ${item.directions}</div>` : ''}
+          <div class="med-meta" style="margin-top:8px;">Date dispensed: ${new Date(sale.created_at).toLocaleDateString()}</div>
+          <div class="med-meta" style="margin-top:10px; font-style:italic;">Keep out of reach of children.</div>
+        </div>
+      `).join('')}
+    </div>
+    <button type="button" class="btn-ghost btn-small no-print" id="do-print-labels-btn" style="margin-top:8px;">🖨 Print</button>
+  `;
+  document.getElementById('do-print-labels-btn').addEventListener('click', () => window.print());
+  els.receiptArea.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function showDispensingRecord(sale, items, customerLabel) {
+  const header = await buildClinicHeaderHtml();
+  const rows = items.map(item => `
+    <tr>
+      <td style="padding:4px 0;">${item.name}</td>
+      <td>${item.qty}</td>
+      <td>${item.qty}</td>
+    </tr>
+  `).join('');
+
+  els.receiptArea.innerHTML = `
+    <div class="med-entry receipt-print-area" style="margin-top:14px; border:1px dashed var(--accent);">
+      ${header}
+      <div class="med-top"><span class="med-name">Prescription &amp; Dispensing Record</span></div>
+      <div class="med-meta" style="margin-top:6px;">Patient: ${customerLabel}</div>
+      <div class="med-meta">Date: ${new Date(sale.created_at).toLocaleString()}</div>
+
+      <table style="width:100%; margin-top:12px; font-size:12.5px; border-collapse:collapse;">
+        <tr style="border-bottom:1px solid var(--line); text-align:left;">
+          <th style="padding:4px 0;">Medicine</th><th>Qty Prescribed</th><th>Qty Dispensed</th>
+        </tr>
+        ${rows}
+      </table>
+
+      <div class="med-meta" style="margin-top:12px;">
+        Patient/caregiver received medicines: ☐ Yes<br>
+        Counselling provided: ☐ Dose ☐ Frequency ☐ Duration ☐ Storage ☐ Precautions
+      </div>
+
+      <div class="signature-block">
+        <div class="signature-line"><div class="line">Dispensed by (Pharmacist/Dispenser)</div></div>
+      </div>
+    </div>
+    <button type="button" class="btn-ghost btn-small no-print" id="do-print-dispensing-btn" style="margin-top:8px;">🖨 Print</button>
+  `;
+  document.getElementById('do-print-dispensing-btn').addEventListener('click', () => window.print());
+  els.receiptArea.scrollIntoView({ behavior: 'smooth' });
+}
 
 async function showReceipt(sale, items, customerLabel) {
   const header = await buildClinicHeaderHtml();
