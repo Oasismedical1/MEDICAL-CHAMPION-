@@ -75,12 +75,24 @@
       </section>
 
     </div>
+
+    <div class="workspace" style="margin-top:22px;">
+      <section class="panel form-panel">
+        <div class="panel-head">
+          <h2>Daily summary</h2>
+          <input type="date" id="daily-date" style="width:auto;">
+        </div>
+        <div id="daily-summary-content"><p class="empty-state">Pick a date to see the summary.</p></div>
+        <button type="button" class="btn-ghost btn-small no-print" id="print-daily-btn" style="margin-top:10px;">🖨 Print summary</button>
+      </section>
+    </div>
   </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="auth-guard.js"></script>
+<script src="clinic-info.js"></script>
 <script src="reports.js"></script>
 </body>
 </html>
