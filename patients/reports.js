@@ -101,6 +101,64 @@ document.getElementById('signout-btn').addEventListener('click', async () => {
   window.location.href = 'login.html';
 });
 
+// ---------- Daily summary ----------
+let lastDailySummary = null;
+
+async function loadDailySummary(dateStr) {
+  const contentEl = document.getElementById('daily-summary-content');
+  if (!dateStr) {
+    contentEl.innerHTML = `<p class="empty-state">Pick a date to see the summary.</p>`;
+    return;
+  }
+
+  const start = new Date(`${dateStr}T00:00:00`).toISOString();
+  const end = new Date(`${dateStr}T23:59:59`).toISOString();
+
+  const [{ data: sales }, { data: labOrders }] = await Promise.all([
+    client.from('pos_sales').select('total_amount, payment_method').gte('created_at', start).lte('created_at', end),
+    client.from('lab_orders').select('amount_charged, payment_method').gte('created_at', start).lte('created_at', end),
+  ]);
+
+  const pharmacyTotal = (sales || []).reduce((sum, s) => sum + (s.total_amount || 0), 0);
+  const labTotal = (labOrders || []).reduce((sum, o) => sum + (o.amount_charged || 0), 0);
+
+  lastDailySummary = { dateStr, pharmacyTotal, pharmacyCount: (sales || []).length, labTotal, labCount: (labOrders || []).length };
+
+  contentEl.innerHTML = `
+    <div class="doc-entry">
+      <div><div class="doc-name">Pharmacy sales</div><div class="med-meta">${lastDailySummary.pharmacyCount} sale${lastDailySummary.pharmacyCount === 1 ? '' : 's'}</div></div>
+      <div class="pr-meta">UGX ${pharmacyTotal.toLocaleString()}</div>
+    </div>
+    <div class="doc-entry">
+      <div><div class="doc-name">Laboratory revenue</div><div class="med-meta">${lastDailySummary.labCount} order${lastDailySummary.labCount === 1 ? '' : 's'}</div></div>
+      <div class="pr-meta">UGX ${labTotal.toLocaleString()}</div>
+    </div>
+    <div class="doc-entry">
+      <div><div class="doc-name" style="font-weight:600;">Total revenue</div></div>
+      <div class="pr-meta" style="font-weight:600;">UGX ${(pharmacyTotal + labTotal).toLocaleString()}</div>
+    </div>
+  `;
+}
+
+document.getElementById('daily-date').addEventListener('change', (e) => loadDailySummary(e.target.value));
+
+document.getElementById('print-daily-btn').addEventListener('click', async () => {
+  if (!lastDailySummary) {
+    alert('Pick a date first.');
+    return;
+  }
+  const header = await buildClinicHeaderHtml();
+  const contentEl = document.getElementById('daily-summary-content');
+  const original = contentEl.innerHTML;
+  contentEl.className = 'receipt-print-area';
+  contentEl.innerHTML = `${header}<div class="med-top"><span class="med-name">Daily Summary — ${lastDailySummary.dateStr}</span></div>` + original;
+  window.print();
+  setTimeout(() => {
+    contentEl.className = '';
+    contentEl.innerHTML = original;
+  }, 500);
+});
+
 (async function init() {
   const user = await window.authReady;
   const userLabel = document.getElementById('user-email');
@@ -110,4 +168,8 @@ document.getElementById('signout-btn').addEventListener('click', async () => {
   await loadStats();
   await loadRecentConsults();
   await loadRecentPatients();
+
+  const dateField = document.getElementById('daily-date');
+  dateField.value = new Date().toISOString().slice(0, 10);
+  await loadDailySummary(dateField.value);
 })();
